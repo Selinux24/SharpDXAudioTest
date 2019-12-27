@@ -1,23 +1,51 @@
 ﻿using SharpDX.Multimedia;
 using SharpDX.X3DAudio;
-using SharpDX.XAPO.Fx;
 using SharpDX.XAudio2;
+using SharpDX.XAudio2.Fx;
+using System;
 using System.IO;
 
 namespace SharpDXAudioTest
 {
-    class AudioState
+    class AudioState : IDisposable
     {
-        public bool Initialized { get; set; }
+        /// <summary>
+        /// 
+        /// </summary>
+        public bool Initialized { get; private set; }
 
-        // XAudio2
-        public XAudio2 XAudio2 { get; set; }
+        /// <summary>
+        /// XAudio2 device
+        /// </summary>
+        public XAudio2 Device { get; private set; }
+        /// <summary>
+        /// Mastering voice
+        /// </summary>
+        public MasteringVoice MasteringVoice { get; private set; }
 
-        public MasteringVoice MasteringVoice { get; set; }
-        public int InputSampleRate { get; set; }
-        public int ChannelMask { get; set; }
-        public Speakers Speakers { get; set; }
-        public int Channels { get; set; }
+        /// <summary>
+        /// Input sample rate
+        /// </summary>
+        public int InputSampleRate { get; private set; }
+        /// <summary>
+        /// Input channels
+        /// </summary>
+        public int InputChannels { get; private set; } = 1;
+        /// <summary>
+        /// Channel mask
+        /// </summary>
+        public int ChannelMask { get; private set; }
+        /// <summary>
+        /// Speakers configuration
+        /// </summary>
+        public Speakers Speakers { get; private set; }
+        /// <summary>
+        /// Output channels
+        /// </summary>
+        public int OutputChannels { get; private set; }
+        /// <summary>
+        /// Use redirect to LFE
+        /// </summary>
         public bool UseRedirectToLFE
         {
             get
@@ -26,10 +54,108 @@ namespace SharpDXAudioTest
             }
         }
 
-        // 3D
-        public X3DAudio X3DInstance { get; set; }
+        /// <summary>
+        /// 3D instance
+        /// </summary>
+        public X3DAudio X3DInstance { get; private set; }
 
-        public VoiceInstance Initialize(string wavFilePath, bool useReverb)
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="sampleRate">Sample rate</param>
+        /// <param name="flags">Creation flags</param>
+        /// <param name="version">Version</param>
+        /// <param name="processor">Processor</param>
+        public AudioState(int sampleRate = 48000, XAudio2Flags flags = XAudio2Flags.None, XAudio2Version version = XAudio2Version.Default, ProcessorSpecifier processor = ProcessorSpecifier.DefaultProcessor)
+        {
+            // Initialize XAudio2
+            this.Device = new XAudio2(flags, processor, version);
+
+            // Create a mastering voice
+            this.MasteringVoice = new MasteringVoice(this.Device, 2, sampleRate);
+
+            // Check device details to make sure it's within our sample supported parameters
+            if (this.Device.Version == XAudio2Version.Version27)
+            {
+                var details = this.MasteringVoice.VoiceDetails;
+                this.InputSampleRate = details.InputSampleRate;
+                this.OutputChannels = details.InputChannelCount;
+                this.ChannelMask = this.MasteringVoice.ChannelMask;
+                this.Speakers = (Speakers)this.ChannelMask;
+            }
+            else
+            {
+                this.MasteringVoice.GetVoiceDetails(out var details);
+                this.InputSampleRate = details.InputSampleRate;
+                this.OutputChannels = details.InputChannelCount;
+                this.MasteringVoice.GetChannelMask(out int channelMask);
+                this.ChannelMask = channelMask;
+                this.Speakers = (Speakers)channelMask;
+            }
+
+            if (this.OutputChannels > AudioConstants.OUTPUTCHANNELS)
+            {
+                throw new Exception($"Too much output channels");
+            }
+
+            // Initialize X3DAudio
+            //  Speaker geometry configuration on the final mix, specifies assignment of channels
+            //  to speaker positions, defined as per WAVEFORMATEXTENSIBLE.dwChannelMask
+            //  SpeedOfSound - speed of sound in user-defined world units/second, used
+            //  only for doppler calculations, it must be >= FLT_MIN
+            this.X3DInstance = new X3DAudio(this.Speakers, X3DAudio.SpeedOfSound);
+
+            // Done
+            this.Initialized = true;
+        }
+        /// <summary>
+        /// Destructor
+        /// </summary>
+        ~AudioState()
+        {
+            // Finalizer calls Dispose(false)  
+            Dispose(false);
+        }
+        /// <summary>
+        /// Dispose resources
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        /// <summary>
+        /// Dispose resources
+        /// </summary>
+        /// <param name="disposing">Free managed resources</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                this.X3DInstance = null;
+
+                if (this.MasteringVoice != null)
+                {
+                    this.MasteringVoice.DestroyVoice();
+                    this.MasteringVoice = null;
+                }
+
+                if (this.Device != null)
+                {
+                    this.Device.StopEngine();
+                    this.Device.Dispose();
+                    this.Device = null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Initialize voice instance
+        /// </summary>
+        /// <param name="wavFilePath">Wav file</param>
+        /// <param name="useReverb">Use reverb with the voice</param>
+        /// <returns>Returns a voice instance</returns>
+        public VoiceInstance InitializeVoice(string wavFilePath, bool useReverb = false)
         {
             // Read in the wave file
             WaveFormat waveFormat;
@@ -50,25 +176,13 @@ namespace SharpDXAudioTest
                 };
             }
 
-            int sampleRate;
-            if (XAudio2.Version == XAudio2Version.Version27)
-            {
-                var details = MasteringVoice.VoiceDetails;
-                sampleRate = details.InputSampleRate;
-            }
-            else
-            {
-                MasteringVoice.GetVoiceDetails(out var details);
-                sampleRate = details.InputSampleRate;
-            }
-
             SubmixVoice mixVoice = null;
             VoiceSendDescriptor[] sendDescriptors;
 
             if (useReverb)
             {
                 // Create reverb effect
-                using (var reverbEffect = new Reverb(XAudio2))
+                using (var reverbEffect = new Reverb(this.Device))
                 {
                     // Create a submix voice
 
@@ -83,13 +197,13 @@ namespace SharpDXAudioTest
                         }
                     };
 
-                    mixVoice = new SubmixVoice(XAudio2, 1, sampleRate, SubmixVoiceFlags.None, 0, effectChain);
+                    mixVoice = new SubmixVoice(this.Device, 1, this.InputSampleRate, SubmixVoiceFlags.None, 0, effectChain);
 
                     // Play the wave using a source voice that sends to both the submix and mastering voices
                     sendDescriptors = new[]
                     {
                         // LPF direct-path
-                        new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = MasteringVoice },
+                        new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = this.MasteringVoice },
                         // LPF reverb-path -- omit for better performance at the cost of less realistic occlusion
                         new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = mixVoice },
                     };
@@ -101,17 +215,17 @@ namespace SharpDXAudioTest
                 sendDescriptors = new[]
                 {
                     // LPF direct-path
-                    new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = MasteringVoice },
+                    new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = this.MasteringVoice },
                 };
             }
 
-            SourceVoice srcVoice = new SourceVoice(XAudio2, waveFormat, VoiceFlags.None, 2.0f, null);
+            SourceVoice srcVoice = new SourceVoice(this.Device, waveFormat, VoiceFlags.None, 2.0f, null);
             srcVoice.SetOutputVoices(sendDescriptors);
 
             // Submit the wave sample data using an XAUDIO2_BUFFER structure
             srcVoice.SubmitSourceBuffer(loopedAudioBuffer, decodedPacketsInfo);
 
-            var result = new VoiceInstance(MasteringVoice, mixVoice, srcVoice);
+            var result = new VoiceInstance(this.MasteringVoice, mixVoice, srcVoice);
 
             result.SetReverb(0);
 

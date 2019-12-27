@@ -1,8 +1,4 @@
 ﻿using SharpDX;
-using SharpDX.Multimedia;
-using SharpDX.X3DAudio;
-using SharpDX.XAudio2;
-using SharpDX.XAudio2.Fx;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -45,16 +41,11 @@ namespace SharpDXAudioTest
         {
             InitUI();
 
-            if (!InitAudio(XAudio2Version.Version28, 48000))
-            {
-                MessageBox.Show("Error initializing audio");
+            audioState = new AudioState(48000);
 
-                return;
-            }
+            music = audioState.InitializeVoice("MusicMono.wav");
 
-            helicopter = audioState.Initialize("heli.wav", true);
-
-            music = audioState.Initialize("MusicMono.wav", false);
+            helicopter = audioState.InitializeVoice("heli.wav", true);
 
             InitAgents();
 
@@ -208,59 +199,9 @@ namespace SharpDXAudioTest
 
         void InitUI()
         {
-            var propNames = typeof(ReverbI3DL2Parameters.Presets)
-                .GetProperties()
-                .Select(p => p.Name)
-                .ToArray();
+            var propNames = AudioConstants.GetPresetNames();
 
-            this.cmbEffects.Items.AddRange(propNames);
-        }
-        bool InitAudio(XAudio2Version version, int sampleRate)
-        {
-            // Clear struct
-            audioState = new AudioState();
-
-            // Initialize XAudio2
-            audioState.XAudio2 = new XAudio2(XAudio2Flags.None, ProcessorSpecifier.DefaultProcessor, version);
-
-            // Create a mastering voice
-            audioState.MasteringVoice = new MasteringVoice(audioState.XAudio2, 2, sampleRate);
-
-            // Check device details to make sure it's within our sample supported parameters
-            if (audioState.XAudio2.Version == XAudio2Version.Version27)
-            {
-                var details = audioState.MasteringVoice.VoiceDetails;
-                audioState.InputSampleRate = details.InputSampleRate;
-                audioState.Channels = details.InputChannelCount;
-                audioState.ChannelMask = audioState.MasteringVoice.ChannelMask;
-                audioState.Speakers = (Speakers)audioState.ChannelMask;
-            }
-            else
-            {
-                audioState.MasteringVoice.GetVoiceDetails(out var details);
-                audioState.InputSampleRate = details.InputSampleRate;
-                audioState.Channels = details.InputChannelCount;
-                audioState.MasteringVoice.GetChannelMask(out int channelMask);
-                audioState.ChannelMask = channelMask;
-                audioState.Speakers = (Speakers)channelMask;
-            }
-
-            if (audioState.Channels > AudioConstants.OUTPUTCHANNELS)
-            {
-                return false;
-            }
-
-            // Initialize X3DAudio
-            //  Speaker geometry configuration on the final mix, specifies assignment of channels
-            //  to speaker positions, defined as per WAVEFORMATEXTENSIBLE.dwChannelMask
-            //  SpeedOfSound - speed of sound in user-defined world units/second, used
-            //  only for doppler calculations, it must be >= FLT_MIN
-            audioState.X3DInstance = new X3DAudio(audioState.Speakers, X3DAudio.SpeedOfSound);
-
-            // Done
-            audioState.Initialized = true;
-
-            return true;
+            this.cmbEffects.Items.AddRange(propNames.ToArray());
         }
         void InitAgents()
         {
@@ -268,18 +209,18 @@ namespace SharpDXAudioTest
             {
                 Position = Vector3.Zero,
             };
+
             emitterHelicopter = new EmitterInstance
             {
                 Position = new Vector3(0f, 0f, AudioConstants.ZMAX),
             };
+            helicopter.Initialize3D(audioState, emitterHelicopter, listenerInstance);
+            voices3d.Add(new ToUpdate3DVoice { Voice = helicopter, Emitter = emitterHelicopter });
+
             emitterMusic = new EmitterInstance
             {
                 Position = new Vector3(AudioConstants.XMAX, 0f, AudioConstants.ZMAX),
             };
-
-            helicopter.Initialize3D(audioState, emitterHelicopter, listenerInstance);
-            voices3d.Add(new ToUpdate3DVoice { Voice = helicopter, Emitter = emitterHelicopter });
-
             music.Initialize3D(audioState, emitterMusic, listenerInstance);
             voices3d.Add(new ToUpdate3DVoice { Voice = music, Emitter = emitterMusic });
         }
@@ -295,8 +236,7 @@ namespace SharpDXAudioTest
                 if (frameToApply3DAudio < voices3d.Count)
                 {
                     var voice3d = voices3d[frameToApply3DAudio];
-                    voice3d.Voice.Calculate3D(fElapsedTime, listenerInstance, voice3d.Emitter);
-                    voice3d.Voice.Apply3D();
+                    voice3d.Voice.Calculate2D(fElapsedTime, listenerInstance, voice3d.Emitter);
                 }
 
                 frameToApply3DAudio++;
@@ -318,20 +258,15 @@ namespace SharpDXAudioTest
 
             if (resume)
             {
-                audioState.XAudio2.StartEngine();
+                audioState.Device.StartEngine();
             }
             else
             {
-                audioState.XAudio2.StopEngine();
+                audioState.Device.StopEngine();
             }
         }
         void CleanupAudio()
         {
-            if (!audioState.Initialized)
-            {
-                return;
-            }
-
             voices3d.Clear();
 
             if (helicopter != null)
@@ -346,16 +281,11 @@ namespace SharpDXAudioTest
                 music = null;
             }
 
-            if (audioState.MasteringVoice != null)
+            if (audioState != null)
             {
-                audioState.MasteringVoice.DestroyVoice();
-                audioState.MasteringVoice = null;
+                audioState.Dispose();
+                audioState = null;
             }
-
-            audioState.XAudio2.StopEngine();
-            audioState.XAudio2.Dispose();
-
-            audioState.Initialized = false;
         }
     }
 }

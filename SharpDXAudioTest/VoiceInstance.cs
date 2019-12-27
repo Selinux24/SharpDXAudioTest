@@ -6,16 +6,19 @@ using System.Linq;
 
 namespace SharpDXAudioTest
 {
+    /// <summary>
+    /// Voice instance
+    /// </summary>
     class VoiceInstance : IDisposable
     {
         private readonly MasteringVoice masteringVoice;
         private X3DAudio x3dInstance;
         private bool useRedirectToLFE;
 
-        private SourceVoice sourceVoice;
-        private SubmixVoice submixVoice;
         private int inputChannels;
         private int outputChannels;
+        private SourceVoice sourceVoice;
+        private SubmixVoice submixVoice;
         private DspSettings dspSettings;
         private Listener listener;
         private Emitter emitter;
@@ -73,8 +76,8 @@ namespace SharpDXAudioTest
         {
             this.x3dInstance = audioState.X3DInstance;
             this.useRedirectToLFE = audioState.UseRedirectToLFE;
-            this.inputChannels = AudioConstants.INPUTCHANNELS;
-            this.outputChannels = audioState.Channels;
+            this.inputChannels = audioState.InputChannels;
+            this.outputChannels = audioState.OutputChannels;
 
             // Setup 3D audio structs
             this.listener = new Listener
@@ -92,9 +95,9 @@ namespace SharpDXAudioTest
                 OrientTop = emitterInstance.OrientTop,
                 Cone = emitterInstance.Cone,
 
-                ChannelCount = AudioConstants.INPUTCHANNELS,
+                ChannelCount = this.inputChannels,
                 ChannelRadius = 1.0f,
-                ChannelAzimuths = new float[AudioConstants.INPUTCHANNELS],
+                ChannelAzimuths = new float[this.inputChannels],
 
                 // Use of Inner radius allows for smoother transitions as
                 // a sound travels directly through, above, or below the listener.
@@ -113,20 +116,38 @@ namespace SharpDXAudioTest
 
             this.dspSettings = new DspSettings(inputChannels, outputChannels);
         }
+        public void Calculate2D(float fElapsedTime, ListenerInstance listenerInstance, EmitterInstance emitterInstance)
+        {
+            Calculate(fElapsedTime, listenerInstance, emitterInstance, false);
+
+            Apply3D();
+        }
         public void Calculate3D(float fElapsedTime, ListenerInstance listenerInstance, EmitterInstance emitterInstance)
         {
-            // Calculate listener orientation in x-z plane
+            Calculate(fElapsedTime, listenerInstance, emitterInstance, true);
+
+            Apply3D();
+        }
+        private void Calculate(float fElapsedTime, ListenerInstance listenerInstance, EmitterInstance emitterInstance, bool calc3D)
+        {
             if (listenerInstance.Position != this.listener.Position)
             {
                 Vector3 v1 = listenerInstance.Position;
                 Vector3 v2 = this.listener.Position;
 
-                var vDelta = v1 - v2;
+                if (calc3D)
+                {
+                    // Calculate listener orientation
+                    this.listener.OrientFront = Vector3.Normalize(v1 - v2);
+                }
+                else
+                {
+                    // Calculate listener orientation in x-z plane
+                    var vDelta = v1 - v2;
+                    vDelta.Y = 0f;
 
-                vDelta.Y = 0f;
-                vDelta.Normalize();
-
-                this.listener.OrientFront = vDelta;
+                    this.listener.OrientFront = Vector3.Normalize(vDelta);
+                }
             }
 
             if (listenerInstance.UseCone)
@@ -184,7 +205,7 @@ namespace SharpDXAudioTest
                 dwCalcFlags,
                 this.dspSettings);
         }
-        public void Apply3D()
+        private void Apply3D()
         {
             if (this.sourceVoice == null)
             {
@@ -213,6 +234,7 @@ namespace SharpDXAudioTest
             };
             this.sourceVoice.SetOutputFilterParameters(this.submixVoice, FilterParametersReverb);
         }
+
         public bool SetReverb(int nReverb)
         {
             if (submixVoice == null)

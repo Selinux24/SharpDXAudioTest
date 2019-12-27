@@ -1,11 +1,12 @@
 ﻿using SharpDX.X3DAudio;
 using SharpDX.XAudio2.Fx;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SharpDXAudioTest
 {
     static class AudioConstants
     {
-        public const int INPUTCHANNELS = 1;  // number of source channels
         public const int OUTPUTCHANNELS = 8; // maximum number of destination channels supported in this sample
 
         // Constants to define our world space
@@ -42,6 +43,15 @@ namespace SharpDXAudioTest
         };
 
         public static int NumPresets { get { return PresetParams.Length; } }
+        public static IEnumerable<string> GetPresetNames()
+        {
+            var propNames = typeof(ReverbI3DL2Parameters.Presets)
+                .GetProperties()
+                .Select(p => p.Name)
+                .ToArray();
+
+            return propNames;
+        }
         public static readonly ReverbParameters[] PresetParams =
         {
             (ReverbParameters)ReverbI3DL2Parameters.Presets.Default,
