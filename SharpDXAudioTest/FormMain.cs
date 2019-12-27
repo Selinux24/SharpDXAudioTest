@@ -24,6 +24,10 @@ namespace SharpDXAudioTest
         VoiceInstance music = null;
         EmitterInstance emitterMusic = null;
 
+        float masterVolume = 0;
+        float musicVolume = 0;
+        float helicopterVolume = 0;
+
         private class ToUpdate3DVoice
         {
             public VoiceInstance Voice { get; set; }
@@ -42,12 +46,18 @@ namespace SharpDXAudioTest
             InitUI();
 
             audioState = new AudioState(48000);
-
             music = audioState.InitializeVoice("MusicMono.wav");
-
             helicopter = audioState.InitializeVoice("heli.wav", true);
 
             InitAgents();
+
+            masterVolume = audioState.GetVolume() * 100f;
+            musicVolume = music.GetVolume() * 100f;
+            helicopterVolume = helicopter.GetVolume() * 100f;
+
+            tbMasterVolume.Value = (int)masterVolume;
+            tbMusic.Value = (int)musicVolume;
+            tbHelicopter.Value = (int)helicopterVolume;
 
             gameTime = DateTime.Now.TimeOfDay;
 
@@ -166,6 +176,24 @@ namespace SharpDXAudioTest
         {
             listenerInstance.UseInnerRadius = !listenerInstance.UseInnerRadius;
         }
+        private void TbMasterVolume_Scroll(object sender, EventArgs e)
+        {
+            masterVolume = tbMasterVolume.Value / (float)tbMasterVolume.Maximum * 100f;
+
+            audioState.SetVolume(masterVolume / 100f);
+        }
+        private void TbMusic_Scroll(object sender, EventArgs e)
+        {
+            musicVolume = tbMusic.Value / (float)tbMusic.Maximum * 100f;
+
+            music.SetVolume(musicVolume / 100f);
+        }
+        private void TbHelicopter_Scroll(object sender, EventArgs e)
+        {
+            helicopterVolume = tbHelicopter.Value / (float)tbHelicopter.Maximum * 100f;
+
+            helicopter.SetVolume(helicopterVolume / 100f);
+        }
 
         private void UpdateText()
         {
@@ -177,6 +205,9 @@ namespace SharpDXAudioTest
             string musicText = $"Music           Pos {emitterMusic.Position.X:00},{emitterMusic.Position.Y:00},{emitterMusic.Position.Z:00}";
             string musicDspText = $"Music DSP.        L {musicDsp[0]:0.000} R {musicDsp[1]:0.000}";
             string listenerText = $"Listener        Pos {listenerInstance.Position.X:00},{listenerInstance.Position.Y:00},{listenerInstance.Position.Z:00}";
+            string musicVolumeText = $"Music volume      {musicVolume:000}";
+            string helicopterVolumeText = $"Helicopter volume {helicopterVolume:000}";
+            string masterVolumeText = $"Master volume     {masterVolume:000}";
 
             StringBuilder sb = new StringBuilder();
             sb.AppendLine(listenerText);
@@ -185,6 +216,10 @@ namespace SharpDXAudioTest
             sb.AppendLine();
             sb.AppendLine(helicopterDspText);
             sb.AppendLine(musicDspText);
+            sb.AppendLine();
+            sb.AppendLine(musicVolumeText);
+            sb.AppendLine(helicopterVolumeText);
+            sb.AppendLine(masterVolumeText);
 
             if (this.InvokeRequired)
                 this.Invoke(new MethodInvoker(delegate ()
@@ -258,11 +293,11 @@ namespace SharpDXAudioTest
 
             if (resume)
             {
-                audioState.Device.StartEngine();
+                audioState.Start();
             }
             else
             {
-                audioState.Device.StopEngine();
+                audioState.Stop();
             }
         }
         void CleanupAudio()

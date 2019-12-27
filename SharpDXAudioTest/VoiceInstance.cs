@@ -261,6 +261,17 @@ namespace SharpDXAudioTest
         {
             this.sourceVoice?.Stop(0);
         }
+        public float GetVolume()
+        {
+            float volume = 0;
+            this.sourceVoice?.GetVolume(out volume);
+
+            return volume;
+        }
+        public void SetVolume(float volume)
+        {
+            this.sourceVoice?.SetVolume(volume);
+        }
 
         public float[] GetMatrixCoefficients()
         {

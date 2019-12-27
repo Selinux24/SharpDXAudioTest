@@ -38,11 +38,20 @@
             this.chkListenerCone = new System.Windows.Forms.CheckBox();
             this.chkListenerInnerRadius = new System.Windows.Forms.CheckBox();
             this.txtData = new System.Windows.Forms.TextBox();
+            this.tbMasterVolume = new System.Windows.Forms.TrackBar();
+            this.tbHelicopter = new System.Windows.Forms.TrackBar();
+            this.tbMusic = new System.Windows.Forms.TrackBar();
+            this.label1 = new System.Windows.Forms.Label();
+            this.label2 = new System.Windows.Forms.Label();
+            this.label3 = new System.Windows.Forms.Label();
+            ((System.ComponentModel.ISupportInitialize)(this.tbMasterVolume)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.tbHelicopter)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.tbMusic)).BeginInit();
             this.SuspendLayout();
             // 
             // butPauseResume
             // 
-            this.butPauseResume.Location = new System.Drawing.Point(646, 415);
+            this.butPauseResume.Location = new System.Drawing.Point(646, 414);
             this.butPauseResume.Name = "butPauseResume";
             this.butPauseResume.Size = new System.Drawing.Size(142, 23);
             this.butPauseResume.TabIndex = 0;
@@ -142,11 +151,75 @@
             this.txtData.Size = new System.Drawing.Size(271, 425);
             this.txtData.TabIndex = 6;
             // 
+            // tbMasterVolume
+            // 
+            this.tbMasterVolume.Location = new System.Drawing.Point(287, 392);
+            this.tbMasterVolume.Maximum = 100;
+            this.tbMasterVolume.Name = "tbMasterVolume";
+            this.tbMasterVolume.Size = new System.Drawing.Size(353, 45);
+            this.tbMasterVolume.TabIndex = 7;
+            this.tbMasterVolume.TickFrequency = 5;
+            this.tbMasterVolume.Scroll += new System.EventHandler(this.TbMasterVolume_Scroll);
+            // 
+            // tbHelicopter
+            // 
+            this.tbHelicopter.Location = new System.Drawing.Point(287, 341);
+            this.tbHelicopter.Maximum = 100;
+            this.tbHelicopter.Name = "tbHelicopter";
+            this.tbHelicopter.Size = new System.Drawing.Size(353, 45);
+            this.tbHelicopter.TabIndex = 8;
+            this.tbHelicopter.TickFrequency = 5;
+            this.tbHelicopter.Scroll += new System.EventHandler(this.TbHelicopter_Scroll);
+            // 
+            // tbMusic
+            // 
+            this.tbMusic.Location = new System.Drawing.Point(287, 290);
+            this.tbMusic.Maximum = 100;
+            this.tbMusic.Name = "tbMusic";
+            this.tbMusic.Size = new System.Drawing.Size(353, 45);
+            this.tbMusic.TabIndex = 9;
+            this.tbMusic.TickFrequency = 5;
+            this.tbMusic.Scroll += new System.EventHandler(this.TbMusic_Scroll);
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label1.Location = new System.Drawing.Point(414, 424);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(90, 13);
+            this.label1.TabIndex = 10;
+            this.label1.Text = "Master Volume";
+            // 
+            // label2
+            // 
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(413, 373);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(93, 13);
+            this.label2.TabIndex = 10;
+            this.label2.Text = "Helicopter Volume";
+            // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(423, 322);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(73, 13);
+            this.label3.TabIndex = 10;
+            this.label3.Text = "Music Volume";
+            // 
             // FormMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
+            this.Controls.Add(this.label3);
+            this.Controls.Add(this.label2);
+            this.Controls.Add(this.label1);
+            this.Controls.Add(this.tbMusic);
+            this.Controls.Add(this.tbHelicopter);
+            this.Controls.Add(this.tbMasterVolume);
             this.Controls.Add(this.txtData);
             this.Controls.Add(this.chkListenerInnerRadius);
             this.Controls.Add(this.chkListenerCone);
@@ -163,6 +236,9 @@
             this.Text = "SharpDX.XAudio2";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormMain_FormClosing);
             this.Load += new System.EventHandler(this.FormMain_Load);
+            ((System.ComponentModel.ISupportInitialize)(this.tbMasterVolume)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.tbHelicopter)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.tbMusic)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -180,6 +256,12 @@
         private System.Windows.Forms.CheckBox chkListenerCone;
         private System.Windows.Forms.CheckBox chkListenerInnerRadius;
         private System.Windows.Forms.TextBox txtData;
+        private System.Windows.Forms.TrackBar tbMasterVolume;
+        private System.Windows.Forms.TrackBar tbHelicopter;
+        private System.Windows.Forms.TrackBar tbMusic;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.Label label3;
     }
 }
 

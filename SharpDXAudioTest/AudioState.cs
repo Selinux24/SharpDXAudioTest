@@ -17,11 +17,11 @@ namespace SharpDXAudioTest
         /// <summary>
         /// XAudio2 device
         /// </summary>
-        public XAudio2 Device { get; private set; }
+        private XAudio2 device;
         /// <summary>
         /// Mastering voice
         /// </summary>
-        public MasteringVoice MasteringVoice { get; private set; }
+        private MasteringVoice MasteringVoice;
 
         /// <summary>
         /// Input sample rate
@@ -69,13 +69,13 @@ namespace SharpDXAudioTest
         public AudioState(int sampleRate = 48000, XAudio2Flags flags = XAudio2Flags.None, XAudio2Version version = XAudio2Version.Default, ProcessorSpecifier processor = ProcessorSpecifier.DefaultProcessor)
         {
             // Initialize XAudio2
-            this.Device = new XAudio2(flags, processor, version);
+            this.device = new XAudio2(flags, processor, version);
 
             // Create a mastering voice
-            this.MasteringVoice = new MasteringVoice(this.Device, 2, sampleRate);
+            this.MasteringVoice = new MasteringVoice(this.device, 2, sampleRate);
 
             // Check device details to make sure it's within our sample supported parameters
-            if (this.Device.Version == XAudio2Version.Version27)
+            if (this.device.Version == XAudio2Version.Version27)
             {
                 var details = this.MasteringVoice.VoiceDetails;
                 this.InputSampleRate = details.InputSampleRate;
@@ -140,11 +140,11 @@ namespace SharpDXAudioTest
                     this.MasteringVoice = null;
                 }
 
-                if (this.Device != null)
+                if (this.device != null)
                 {
-                    this.Device.StopEngine();
-                    this.Device.Dispose();
-                    this.Device = null;
+                    this.device.StopEngine();
+                    this.device.Dispose();
+                    this.device = null;
                 }
             }
         }
@@ -182,7 +182,7 @@ namespace SharpDXAudioTest
             if (useReverb)
             {
                 // Create reverb effect
-                using (var reverbEffect = new Reverb(this.Device))
+                using (var reverbEffect = new Reverb(this.device))
                 {
                     // Create a submix voice
 
@@ -197,7 +197,7 @@ namespace SharpDXAudioTest
                         }
                     };
 
-                    mixVoice = new SubmixVoice(this.Device, 1, this.InputSampleRate, SubmixVoiceFlags.None, 0, effectChain);
+                    mixVoice = new SubmixVoice(this.device, 1, this.InputSampleRate, SubmixVoiceFlags.None, 0, effectChain);
 
                     // Play the wave using a source voice that sends to both the submix and mastering voices
                     sendDescriptors = new[]
@@ -219,7 +219,7 @@ namespace SharpDXAudioTest
                 };
             }
 
-            SourceVoice srcVoice = new SourceVoice(this.Device, waveFormat, VoiceFlags.None, 2.0f, null);
+            SourceVoice srcVoice = new SourceVoice(this.device, waveFormat, VoiceFlags.None, 2.0f, null);
             srcVoice.SetOutputVoices(sendDescriptors);
 
             // Submit the wave sample data using an XAUDIO2_BUFFER structure
@@ -230,6 +230,26 @@ namespace SharpDXAudioTest
             result.SetReverb(0);
 
             return result;
+        }
+
+        public void Start()
+        {
+            this.device?.StartEngine();
+        }
+        public void Stop()
+        {
+            this.device?.StopEngine();
+        }
+        public float GetVolume()
+        {
+            float volume = 0;
+            this.MasteringVoice?.GetVolume(out volume);
+
+            return volume;
+        }
+        public void SetVolume(float volume)
+        {
+            this.MasteringVoice?.SetVolume(volume);
         }
     }
 }
