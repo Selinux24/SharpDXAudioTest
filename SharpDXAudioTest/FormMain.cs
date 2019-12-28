@@ -34,6 +34,7 @@ namespace SharpDXAudioTest
             public EmitterInstance Emitter { get; set; }
         }
 
+        readonly List<IAgent> agents = new List<IAgent>();
         readonly List<ToUpdate3DVoice> voices3d = new List<ToUpdate3DVoice>();
 
         public FormMain()
@@ -105,7 +106,12 @@ namespace SharpDXAudioTest
         }
         private void CmbEffects_SelectedValueChanged(object sender, EventArgs e)
         {
-            int value = cmbEffects.SelectedIndex;
+            if (audioState?.Initialized != true)
+            {
+                return;
+            }
+
+            int value = cbEffects.SelectedIndex;
 
             if (!helicopter.SetReverb(value))
             {
@@ -114,59 +120,55 @@ namespace SharpDXAudioTest
         }
         private void ButUp_Click(object sender, EventArgs e)
         {
-            var pos = chkMove.Checked ? listenerInstance.Position : emitterHelicopter.Position;
+            var agent = agents.FirstOrDefault(a => a.Name == (string)cbAgent.SelectedItem);
+            if (agent == null)
+            {
+                return;
+            }
+
+            var pos = agent.Position;
             pos.Z += 1;
             pos.Z = Math.Min(AudioConstants.ZMAX, pos.Z);
-            if (chkMove.Checked)
-            {
-                listenerInstance.Position = pos;
-            }
-            else
-            {
-                emitterHelicopter.Position = pos;
-            }
+            agent.Position = pos;
         }
         private void ButRight_Click(object sender, EventArgs e)
         {
-            var pos = chkMove.Checked ? listenerInstance.Position : emitterHelicopter.Position;
+            var agent = agents.FirstOrDefault(a => a.Name == (string)cbAgent.SelectedItem);
+            if (agent == null)
+            {
+                return;
+            }
+
+            var pos = agent.Position;
             pos.X += 1;
             pos.X = Math.Min(AudioConstants.XMAX, pos.X);
-            if (chkMove.Checked)
-            {
-                listenerInstance.Position = pos;
-            }
-            else
-            {
-                emitterHelicopter.Position = pos;
-            }
+            agent.Position = pos;
         }
         private void ButDown_Click(object sender, EventArgs e)
         {
-            var pos = chkMove.Checked ? listenerInstance.Position : emitterHelicopter.Position;
+            var agent = agents.FirstOrDefault(a => a.Name == (string)cbAgent.SelectedItem);
+            if (agent == null)
+            {
+                return;
+            }
+
+            var pos = agent.Position;
             pos.Z -= 1;
             pos.Z = Math.Max(AudioConstants.ZMIN, pos.Z);
-            if (chkMove.Checked)
-            {
-                listenerInstance.Position = pos;
-            }
-            else
-            {
-                emitterHelicopter.Position = pos;
-            }
+            agent.Position = pos;
         }
         private void ButLeft_Click(object sender, EventArgs e)
         {
-            var pos = chkMove.Checked ? listenerInstance.Position : emitterHelicopter.Position;
+            var agent = agents.FirstOrDefault(a => a.Name == (string)cbAgent.SelectedItem);
+            if (agent == null)
+            {
+                return;
+            }
+
+            var pos = agent.Position;
             pos.X -= 1;
             pos.X = Math.Max(AudioConstants.XMIN, pos.X);
-            if (chkMove.Checked)
-            {
-                listenerInstance.Position = pos;
-            }
-            else
-            {
-                emitterHelicopter.Position = pos;
-            }
+            agent.Position = pos;
         }
         private void ChkListenerCone_CheckedChanged(object sender, EventArgs e)
         {
@@ -236,28 +238,37 @@ namespace SharpDXAudioTest
         {
             var propNames = AudioConstants.GetPresetNames();
 
-            this.cmbEffects.Items.AddRange(propNames.ToArray());
+            this.cbEffects.Items.AddRange(propNames.ToArray());
+            this.cbEffects.SelectedIndex = 0;
+
+            listenerInstance = new ListenerInstance
+            {
+                Name = "Listener",
+                Position = Vector3.Zero,
+            };
+            emitterHelicopter = new EmitterInstance
+            {
+                Name = "Helicopter",
+                Position = new Vector3(0f, 0f, AudioConstants.ZMAX),
+            };
+            emitterMusic = new EmitterInstance
+            {
+                Name = "Music",
+                Position = new Vector3(AudioConstants.XMAX, 0f, AudioConstants.ZMAX),
+            };
+            agents.AddRange(new IAgent[] { listenerInstance, emitterMusic, emitterHelicopter });
+
+            this.cbAgent.Items.AddRange(agents.Select(a => a.Name).ToArray());
+            this.cbAgent.SelectedIndex = 0;
         }
         void InitAgents()
         {
-            listenerInstance = new ListenerInstance
-            {
-                Position = Vector3.Zero,
-            };
-
-            emitterHelicopter = new EmitterInstance
-            {
-                Position = new Vector3(0f, 0f, AudioConstants.ZMAX),
-            };
             helicopter.Initialize3D(audioState, emitterHelicopter, listenerInstance);
             voices3d.Add(new ToUpdate3DVoice { Voice = helicopter, Emitter = emitterHelicopter });
 
-            emitterMusic = new EmitterInstance
-            {
-                Position = new Vector3(AudioConstants.XMAX, 0f, AudioConstants.ZMAX),
-            };
             music.Initialize3D(audioState, emitterMusic, listenerInstance);
             voices3d.Add(new ToUpdate3DVoice { Voice = music, Emitter = emitterMusic });
+
         }
         bool UpdateAudio(float fElapsedTime)
         {

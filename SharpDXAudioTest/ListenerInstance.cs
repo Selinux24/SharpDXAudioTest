@@ -3,7 +3,7 @@ using SharpDX.X3DAudio;
 
 namespace SharpDXAudioTest
 {
-    class ListenerInstance
+    class ListenerInstance : IAgent
     {
         public static Cone DefaultCone
         {
@@ -27,6 +27,7 @@ namespace SharpDXAudioTest
             }
         }
 
+        public string Name { get; set; }
         public Vector3 Position { get; set; } = Vector3.Zero;
         public Vector3 OrientFront { get; set; } = Vector3.ForwardLH;
         public Vector3 OrientTop { get; set; } = Vector3.Up;
