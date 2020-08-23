@@ -162,7 +162,7 @@ namespace SharpDXAudioTest
             if (listenerInstance.UseInnerRadius)
             {
                 this.emitter.InnerRadius = 2.0f;
-                this.emitter.InnerRadiusAngle = MathUtil.Pi / 4.0f;
+                this.emitter.InnerRadiusAngle = MathUtil.PiOverFour;
             }
             else
             {
@@ -214,25 +214,31 @@ namespace SharpDXAudioTest
 
             // Apply X3DAudio generated DSP settings to XAudio2
             this.sourceVoice.SetFrequencyRatio(this.dspSettings.DopplerFactor);
+
             this.sourceVoice.SetOutputMatrix(this.masteringVoice, inputChannels, outputChannels, this.dspSettings.MatrixCoefficients);
+            this.sourceVoice.SetOutputFilterParameters(
+                this.masteringVoice,
+                new FilterParameters
+                {
+                    Type = FilterType.LowPassFilter,
+                    Frequency = 2.0f * (float)Math.Sin(MathUtil.Pi / 6.0f * this.dspSettings.LpfDirectCoefficient),
+                    OneOverQ = 1.0f
+                });
+
+            if (this.submixVoice == null)
+            {
+                return;
+            }
 
             this.sourceVoice.SetOutputMatrix(this.submixVoice, 1, 1, new[] { this.dspSettings.ReverbLevel });
-
-            FilterParameters FilterParametersDirect = new FilterParameters
-            {
-                Type = FilterType.LowPassFilter,
-                Frequency = 2.0f * (float)Math.Sin(MathUtil.Pi / 6.0f * this.dspSettings.LpfDirectCoefficient),
-                OneOverQ = 1.0f
-            };
-            this.sourceVoice.SetOutputFilterParameters(this.masteringVoice, FilterParametersDirect);
-
-            FilterParameters FilterParametersReverb = new FilterParameters
-            {
-                Type = FilterType.LowPassFilter,
-                Frequency = 2.0f * (float)Math.Sin(MathUtil.Pi / 6.0f * this.dspSettings.LpfReverbCoefficient),
-                OneOverQ = 1.0f
-            };
-            this.sourceVoice.SetOutputFilterParameters(this.submixVoice, FilterParametersReverb);
+            this.sourceVoice.SetOutputFilterParameters(
+                this.submixVoice,
+                new FilterParameters
+                {
+                    Type = FilterType.LowPassFilter,
+                    Frequency = 2.0f * (float)Math.Sin(MathUtil.Pi / 6.0f * this.dspSettings.LpfReverbCoefficient),
+                    OneOverQ = 1.0f
+                });
         }
 
         public bool SetReverb(int nReverb)
@@ -247,8 +253,7 @@ namespace SharpDXAudioTest
                 return false;
             }
 
-            var native = AudioConstants.PresetParams[nReverb];
-            native.RoomFilterFreq = 20;
+            var native = AudioConstants.GetPreset(nReverb);
             submixVoice.SetEffectParameters(0, native);
 
             return true;

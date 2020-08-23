@@ -52,7 +52,13 @@ namespace SharpDXAudioTest
 
             return propNames;
         }
-        public static readonly ReverbParameters[] PresetParams =
+        public static ReverbParameters GetPreset(int index)
+        {
+            var preset = PresetParams[index];
+            preset.RoomFilterFreq = 20;
+            return preset;
+        }
+        private static readonly ReverbParameters[] PresetParams =
         {
             (ReverbParameters)ReverbI3DL2Parameters.Presets.Default,
             (ReverbParameters)ReverbI3DL2Parameters.Presets.Generic,

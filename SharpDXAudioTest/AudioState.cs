@@ -32,10 +32,6 @@ namespace SharpDXAudioTest
         /// </summary>
         public int InputChannels { get; private set; } = 1;
         /// <summary>
-        /// Channel mask
-        /// </summary>
-        public int ChannelMask { get; private set; }
-        /// <summary>
         /// Speakers configuration
         /// </summary>
         public Speakers Speakers { get; private set; }
@@ -80,8 +76,8 @@ namespace SharpDXAudioTest
                 var details = this.MasteringVoice.VoiceDetails;
                 this.InputSampleRate = details.InputSampleRate;
                 this.OutputChannels = details.InputChannelCount;
-                this.ChannelMask = this.MasteringVoice.ChannelMask;
-                this.Speakers = (Speakers)this.ChannelMask;
+                int channelMask = this.MasteringVoice.ChannelMask;
+                this.Speakers = (Speakers)channelMask;
             }
             else
             {
@@ -89,13 +85,17 @@ namespace SharpDXAudioTest
                 this.InputSampleRate = details.InputSampleRate;
                 this.OutputChannels = details.InputChannelCount;
                 this.MasteringVoice.GetChannelMask(out int channelMask);
-                this.ChannelMask = channelMask;
                 this.Speakers = (Speakers)channelMask;
             }
 
             if (this.OutputChannels > AudioConstants.OUTPUTCHANNELS)
             {
                 throw new Exception($"Too much output channels");
+            }
+
+            if (this.Speakers == Speakers.None)
+            {
+                this.Speakers = Speakers.FrontLeft | Speakers.FrontRight;
             }
 
             // Initialize X3DAudio
