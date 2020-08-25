@@ -1,9 +1,7 @@
 ﻿using SharpDX.Multimedia;
 using SharpDX.X3DAudio;
 using SharpDX.XAudio2;
-using SharpDX.XAudio2.Fx;
 using System;
-using System.IO;
 
 namespace SharpDXAudioTest
 {
@@ -24,17 +22,13 @@ namespace SharpDXAudioTest
         private MasteringVoice MasteringVoice;
 
         /// <summary>
-        /// Input sample rate
-        /// </summary>
-        public int InputSampleRate { get; private set; }
-        /// <summary>
-        /// Input channels
-        /// </summary>
-        public int InputChannels { get; private set; } = 1;
-        /// <summary>
         /// Speakers configuration
         /// </summary>
         public Speakers Speakers { get; private set; }
+        /// <summary>
+        /// Output sample rate
+        /// </summary>
+        public int OutputSampleRate { get; private set; }
         /// <summary>
         /// Output channels
         /// </summary>
@@ -74,7 +68,7 @@ namespace SharpDXAudioTest
             if (this.device.Version == XAudio2Version.Version27)
             {
                 var details = this.MasteringVoice.VoiceDetails;
-                this.InputSampleRate = details.InputSampleRate;
+                this.OutputSampleRate = details.InputSampleRate;
                 this.OutputChannels = details.InputChannelCount;
                 int channelMask = this.MasteringVoice.ChannelMask;
                 this.Speakers = (Speakers)channelMask;
@@ -82,7 +76,7 @@ namespace SharpDXAudioTest
             else
             {
                 this.MasteringVoice.GetVoiceDetails(out var details);
-                this.InputSampleRate = details.InputSampleRate;
+                this.OutputSampleRate = details.InputSampleRate;
                 this.OutputChannels = details.InputChannelCount;
                 this.MasteringVoice.GetChannelMask(out int channelMask);
                 this.Speakers = (Speakers)channelMask;
@@ -152,84 +146,19 @@ namespace SharpDXAudioTest
         /// <summary>
         /// Initialize voice instance
         /// </summary>
-        /// <param name="wavFilePath">Wav file</param>
+        /// <param name="filePath">Sound file</param>
         /// <param name="useReverb">Use reverb with the voice</param>
         /// <returns>Returns a voice instance</returns>
-        public VoiceInstance InitializeVoice(string wavFilePath, bool useReverb = false)
+        public VoiceInstance InitializeVoice(string filePath, bool useReverb = false)
         {
-            // Read in the wave file
-            WaveFormat waveFormat;
-            AudioBuffer loopedAudioBuffer;
-            uint[] decodedPacketsInfo;
-            using (var stream = new SoundStream(File.OpenRead(wavFilePath)))
+            VoiceInstance player = new VoiceInstance(device, this.MasteringVoice, filePath, useReverb, OutputSampleRate)
             {
-                var buffer = stream.ToDataStream();
+                IsRepeating = true
+            };
 
-                waveFormat = stream.Format;
-                decodedPacketsInfo = stream.DecodedPacketsInfo;
-                loopedAudioBuffer = new AudioBuffer
-                {
-                    Stream = buffer,
-                    AudioBytes = (int)buffer.Length,
-                    Flags = BufferFlags.EndOfStream,
-                    LoopCount = AudioBuffer.LoopInfinite,
-                };
-            }
+            player.SetReverb(0);
 
-            SubmixVoice mixVoice = null;
-            VoiceSendDescriptor[] sendDescriptors;
-
-            if (useReverb)
-            {
-                // Create reverb effect
-                using (var reverbEffect = new Reverb(this.device))
-                {
-                    // Create a submix voice
-
-                    // Performance tip: you need not run global FX with the sample number
-                    // of channels as the final mix.  For example, this sample runs
-                    // the reverb in mono mode, thus reducing CPU overhead.
-                    EffectDescriptor[] effectChain =
-                    {
-                        new EffectDescriptor(reverbEffect, 1)
-                        {
-                            InitialState = true,
-                        }
-                    };
-
-                    mixVoice = new SubmixVoice(this.device, 1, this.InputSampleRate, SubmixVoiceFlags.None, 0, effectChain);
-
-                    // Play the wave using a source voice that sends to both the submix and mastering voices
-                    sendDescriptors = new[]
-                    {
-                        // LPF direct-path
-                        new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = this.MasteringVoice },
-                        // LPF reverb-path -- omit for better performance at the cost of less realistic occlusion
-                        new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = mixVoice },
-                    };
-                }
-            }
-            else
-            {
-                // Play the wave using a source voice that sends to both the submix and mastering voices
-                sendDescriptors = new[]
-                {
-                    // LPF direct-path
-                    new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = this.MasteringVoice },
-                };
-            }
-
-            SourceVoice srcVoice = new SourceVoice(this.device, waveFormat, VoiceFlags.None, 2.0f, null);
-            srcVoice.SetOutputVoices(sendDescriptors);
-
-            // Submit the wave sample data using an XAUDIO2_BUFFER structure
-            srcVoice.SubmitSourceBuffer(loopedAudioBuffer, decodedPacketsInfo);
-
-            var result = new VoiceInstance(this.MasteringVoice, mixVoice, srcVoice);
-
-            result.SetReverb(0);
-
-            return result;
+            return player;
         }
 
         public void Start()

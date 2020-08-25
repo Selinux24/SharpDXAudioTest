@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.butPauseResume = new System.Windows.Forms.Button();
             this.cbEffects = new System.Windows.Forms.ComboBox();
             this.butLeft = new System.Windows.Forms.Button();
@@ -46,6 +47,7 @@
             this.cbAgent = new System.Windows.Forms.ComboBox();
             this.label4 = new System.Windows.Forms.Label();
             this.label5 = new System.Windows.Forms.Label();
+            this.timerUpdate = new System.Windows.Forms.Timer(this.components);
             ((System.ComponentModel.ISupportInitialize)(this.tbMasterVolume)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbHelicopter)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbMusic)).BeginInit();
@@ -228,6 +230,11 @@
             this.label5.TabIndex = 12;
             this.label5.Text = "Agent";
             // 
+            // timerUpdate
+            // 
+            this.timerUpdate.Enabled = true;
+            this.timerUpdate.Tick += new System.EventHandler(this.TimerUpdate_Tick);
+            // 
             // FormMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -285,6 +292,7 @@
         private System.Windows.Forms.ComboBox cbAgent;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.Timer timerUpdate;
     }
 }
 

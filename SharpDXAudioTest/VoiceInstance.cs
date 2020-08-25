@@ -1,36 +1,168 @@
 ﻿using SharpDX;
+using SharpDX.MediaFoundation;
 using SharpDX.X3DAudio;
 using SharpDX.XAudio2;
+using SharpDX.XAudio2.Fx;
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SharpDXAudioTest
 {
-    /// <summary>
-    /// Voice instance
-    /// </summary>
     class VoiceInstance : IDisposable
     {
-        private readonly MasteringVoice masteringVoice;
-        private X3DAudio x3dInstance;
-        private bool useRedirectToLFE;
+        private const int WaitPrecision = 1;
+        private const int BufferCount = 3;
+        private const int BufferDefaultSize = 32 * 1024; // default size 32Kb
 
-        private int inputChannels;
-        private int outputChannels;
-        private SourceVoice sourceVoice;
+        private readonly MasteringVoice masteringVoice;
+        private readonly AudioBuffer[] audioBuffers;
+        private readonly DataPointer[] memBuffers;
+        private readonly Stopwatch clock = new Stopwatch();
+        private readonly ManualResetEvent playEvent = new ManualResetEvent(false);
+        private readonly ManualResetEvent waitForPlayToOutput = new ManualResetEvent(false);
+        private readonly AutoResetEvent bufferEndEvent = new AutoResetEvent(false);
+        private AudioDecoder audioDecoder;
+        private TimeSpan playPosition;
+        private TimeSpan nextPlayPosition;
+        private TimeSpan playPositionStart;
+        private int playCounter;
+        private int currentSample = 0;
+        private bool disposed = false;
+
+        private readonly int inputChannels;
+
         private SubmixVoice submixVoice;
         private DspSettings dspSettings;
+
+        private bool initialized3D = false;
+        private X3DAudio x3dInstance;
+        private bool useRedirectToLFE;
+        private int outputChannels;
         private Listener listener;
         private Emitter emitter;
 
         /// <summary>
-        /// Constructor
+        /// Gets the XAudio2 <see cref="SourceVoice"/> created by this decoder.
         /// </summary>
-        public VoiceInstance(MasteringVoice masteringVoice, SubmixVoice submixVoice, SourceVoice sourceVoice)
+        /// <value>The source voice.</value>
+        public SourceVoice SourceVoice { get; private set; }
+        /// <summary>
+        /// Gets the state of this instance.
+        /// </summary>
+        /// <value>The state.</value>
+        public AudioPlayerState State { get; private set; } = AudioPlayerState.Stopped;
+        /// <summary>
+        /// Gets the duration in seconds of the current sound.
+        /// </summary>
+        /// <value>The duration.</value>
+        public TimeSpan Duration
+        {
+            get { return audioDecoder.Duration; }
+        }
+        /// <summary>
+        /// Gets or sets the position in seconds.
+        /// </summary>
+        /// <value>The position.</value>
+        public TimeSpan Position
+        {
+            get { return playPosition; }
+            set
+            {
+                playPosition = value;
+                nextPlayPosition = value;
+                playPositionStart = value;
+                clock.Restart();
+                playCounter++;
+            }
+        }
+        /// <summary>
+        /// Gets or sets a value indicating whether to the sound is looping when the end of the buffer is reached.
+        /// </summary>
+        /// <value><c>true</c> if to loop the sound; otherwise, <c>false</c>.</value>
+        public bool IsRepeating { get; set; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="VoiceInstance" /> class.
+        /// </summary>
+        /// <param name="xaudio2">The xaudio2 engine.</param>
+        /// <param name="audioStream">The input audio stream.</param>
+        public VoiceInstance(XAudio2 device, MasteringVoice masteringVoice, string fileName, bool useReverb, int outputSample)
         {
             this.masteringVoice = masteringVoice;
-            this.submixVoice = submixVoice;
-            this.sourceVoice = sourceVoice;
+
+            // Pre-allocate buffers
+            audioBuffers = new AudioBuffer[BufferCount];
+            memBuffers = new DataPointer[BufferCount];
+
+            for (int i = 0; i < BufferCount; i++)
+            {
+                audioBuffers[i] = new AudioBuffer();
+
+                memBuffers[i] = new DataPointer()
+                {
+                    Pointer = Utilities.AllocateMemory(BufferDefaultSize),
+                    Size = BufferDefaultSize,
+                };
+            }
+
+            audioDecoder = new AudioDecoder(File.OpenRead(fileName));
+            inputChannels = audioDecoder.WaveFormat.Channels;
+
+            SourceVoice = new SourceVoice(device, audioDecoder.WaveFormat, VoiceFlags.None, 2.0f, null);
+            SourceVoice.BufferEnd += SourceVoiceBufferEnd;
+
+            // Read in the wave file
+            SubmixVoice mixVoice = null;
+            VoiceSendDescriptor[] sendDescriptors;
+
+            if (useReverb)
+            {
+                // Create reverb effect
+                using (var reverbEffect = new Reverb(device))
+                {
+                    // Create a submix voice
+
+                    // Performance tip: you need not run global FX with the sample number
+                    // of channels as the final mix.  For example, this sample runs
+                    // the reverb in mono mode, thus reducing CPU overhead.
+                    EffectDescriptor[] effectChain =
+                    {
+                        new EffectDescriptor(reverbEffect, 1)
+                        {
+                            InitialState = true,
+                        }
+                    };
+
+                    mixVoice = new SubmixVoice(device, inputChannels, outputSample, SubmixVoiceFlags.None, 0, effectChain);
+
+                    // Play the wave using a source voice that sends to both the submix and mastering voices
+                    sendDescriptors = new[]
+                    {
+                        // LPF direct-path
+                        new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = this.masteringVoice },
+                        // LPF reverb-path -- omit for better performance at the cost of less realistic occlusion
+                        new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = mixVoice },
+                    };
+                }
+            }
+            else
+            {
+                // Play the wave using a source voice that sends to both the submix and mastering voices
+                sendDescriptors = new[]
+                {
+                    // LPF direct-path
+                    new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = this.masteringVoice },
+                };
+            }
+
+            SourceVoice.SetOutputVoices(sendDescriptors);
+
+            // Starts the playing thread
+            Task.Factory.StartNew(PlayAsync, TaskCreationOptions.LongRunning);
         }
         /// <summary>
         /// Destructor
@@ -56,19 +188,272 @@ namespace SharpDXAudioTest
         {
             if (disposing)
             {
-                if (this.sourceVoice != null)
-                {
-                    this.sourceVoice.Stop(0);
-                    this.sourceVoice.DestroyVoice();
-                    this.sourceVoice = null;
-                }
+                DisposePlayer();
+            }
+        }
 
-                if (this.submixVoice != null)
+        /// <summary>
+        /// Plays the sound.
+        /// </summary>
+        public void Play()
+        {
+            if (State == AudioPlayerState.Stopped)
+            {
+                SourceVoice.Start(0);
+
+                playCounter++;
+                waitForPlayToOutput.Reset();
+                State = AudioPlayerState.Playing;
+                playEvent.Set();
+                waitForPlayToOutput.WaitOne();
+            }
+            else if (State == AudioPlayerState.Paused)
+            {
+                Resume();
+            }
+        }
+        /// <summary>
+        /// Pauses the sound.
+        /// </summary>
+        public void Pause()
+        {
+            if (State == AudioPlayerState.Playing)
+            {
+                SourceVoice.Stop();
+
+                clock.Stop();
+                State = AudioPlayerState.Paused;
+                playEvent.Reset();
+            }
+        }
+        /// <summary>
+        /// Resumes the play
+        /// </summary>
+        public void Resume()
+        {
+            if (State == AudioPlayerState.Paused)
+            {
+                SourceVoice.Start();
+
+                clock.Start();
+                State = AudioPlayerState.Playing;
+                playEvent.Set();
+            }
+        }
+        /// <summary>
+        /// Stops the sound.
+        /// </summary>
+        public void Stop()
+        {
+            if (State != AudioPlayerState.Stopped)
+            {
+                SourceVoice.Stop(0);
+
+                playPosition = TimeSpan.Zero;
+                nextPlayPosition = TimeSpan.Zero;
+                playPositionStart = TimeSpan.Zero;
+                playCounter++;
+
+                clock.Stop();
+                State = AudioPlayerState.Stopped;
+                playEvent.Reset();
+            }
+        }
+
+        /// <summary>
+        /// Gets the current volume
+        /// </summary>
+        public float GetVolume()
+        {
+            this.SourceVoice.GetVolume(out float volume);
+
+            return volume;
+        }
+        /// <summary>
+        /// Sets the volume
+        /// </summary>
+        /// <param name="volume">Volume value</param>
+        public void SetVolume(float volume)
+        {
+            this.SourceVoice.SetVolume(volume);
+        }
+
+        /// <summary>
+        /// Internal method to play the sound.
+        /// </summary>
+        private void PlayAsync()
+        {
+            try
+            {
+                while (true)
                 {
-                    this.submixVoice.DestroyVoice();
-                    this.submixVoice = null;
+                    if (disposed)
+                    {
+                        break;
+                    }
+
+                    // Check that this instanced is not disposed
+                    while (true)
+                    {
+                        if (playEvent.WaitOne(WaitPrecision))
+                        {
+                            Console.WriteLine("playEvent.WaitOne - Waiting for play");
+                            break;
+                        }
+                    }
+
+                    // Playing all the samples
+                    PlayAllSamples(out bool endOfSong);
+
+                    // If the song is not looping (by default), then stop the audio player.
+                    if (State == AudioPlayerState.Playing && endOfSong && !IsRepeating)
+                    {
+                        Stop();
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+
+                throw;
+            }
+            finally
+            {
+                DisposePlayer();
+            }
+        }
+        /// <summary>
+        /// Plays all sound samples
+        /// </summary>
+        /// <param name="endOfSound">End of sound flag</param>
+        private void PlayAllSamples(out bool endOfSound)
+        {
+            endOfSound = false;
+
+            int nextBuffer = 0;
+
+            clock.Restart();
+            playPositionStart = nextPlayPosition;
+            playPosition = playPositionStart;
+            int currentPlayCounter = playCounter;
+
+            // Get the decoded samples from the specified starting position.
+            var sampleIterator = audioDecoder.GetSamples(playPositionStart).GetEnumerator();
+            currentSample = 0;
+
+            bool isFirstTime = true;
+
+            while (true)
+            {
+                if (disposed)
+                {
+                    break;
+                }
+
+                while (State != AudioPlayerState.Stopped)
+                {
+                    // While the player is not stopped, wait for the play event
+                    if (playEvent.WaitOne(WaitPrecision))
+                    {
+                        Console.WriteLine("playEvent.WaitOne - Waiting for play");
+                        break;
+                    }
+                }
+
+                // If the player is stopped, then break of this loop
+                if (State == AudioPlayerState.Stopped)
+                {
+                    nextPlayPosition = TimeSpan.Zero;
+                    break;
+                }
+
+                // If there was a change in the play position, restart the sample iterator.
+                if (currentPlayCounter != playCounter)
+                {
+                    break;
+                }
+
+                // If the player is not stopped and the buffer queue is full, wait for the end of a buffer.
+                while (State != AudioPlayerState.Stopped && !disposed && SourceVoice.State.BuffersQueued == BufferCount)
+                {
+                    bufferEndEvent.WaitOne(WaitPrecision);
+                }
+                Console.WriteLine("bufferEndEvent.WaitOne - Load new buffer");
+
+                // If the player is stopped or disposed, then break of this loop
+                if (State == AudioPlayerState.Stopped)
+                {
+                    nextPlayPosition = TimeSpan.Zero;
+                    break;
+                }
+
+                // Check that there is a next sample
+                if (!sampleIterator.MoveNext())
+                {
+                    endOfSound = true;
+                    break;
+                }
+
+                Console.WriteLine($"Sample: {currentSample++}");
+
+                // If there was a change in the play position, restart the sample iterator.
+                if (currentPlayCounter != playCounter)
+                {
+                    break;
+                }
+
+                // Retrieve a pointer to the sample data
+                var audioBuffer = PrepareBuffer(sampleIterator.Current, nextBuffer);
+
+                // If this is a first play, restart the clock and notify play method.
+                if (isFirstTime)
+                {
+                    clock.Restart();
+                    isFirstTime = false;
+
+                    Console.WriteLine("waitForPlayToOutput.Set (First time)");
+                    waitForPlayToOutput.Set();
+                }
+
+                // Update the current position used for sync
+                playPosition = playPositionStart + clock.Elapsed;
+
+                // Submit the audio buffer to xaudio2
+                SourceVoice.SubmitSourceBuffer(audioBuffer, null);
+
+                // Go to next entry in the ringg audio buffer
+                nextBuffer = ++nextBuffer % BufferCount;
+            }
+        }
+        /// <summary>
+        /// Reads the buffer data from the decoder sample pointer, and writes into the next audio buffer to submit to the Source Voice
+        /// </summary>
+        /// <param name="bufferPointer">Buffer pointer</param>
+        /// <param name="nextBuffer">Next buffer index</param>
+        /// <returns>Returns the audio buffer prepared to submit</returns>
+        private AudioBuffer PrepareBuffer(DataPointer bufferPointer, int nextBuffer)
+        {
+            // Check that our ring buffer has enough space to store the audio buffer.
+            if (bufferPointer.Size > memBuffers[nextBuffer].Size)
+            {
+                if (memBuffers[nextBuffer].Pointer != IntPtr.Zero)
+                {
+                    Utilities.FreeMemory(memBuffers[nextBuffer].Pointer);
+                }
+
+                memBuffers[nextBuffer].Pointer = Utilities.AllocateMemory(bufferPointer.Size);
+                memBuffers[nextBuffer].Size = bufferPointer.Size;
+            }
+
+            // Copy the memory from MediaFoundation AudioDecoder to the buffer that is going to be played.
+            Utilities.CopyMemory(memBuffers[nextBuffer].Pointer, bufferPointer.Pointer, bufferPointer.Size);
+
+            // Set the pointer to the data.
+            audioBuffers[nextBuffer].AudioDataPointer = memBuffers[nextBuffer].Pointer;
+            audioBuffers[nextBuffer].AudioBytes = bufferPointer.Size;
+
+            return audioBuffers[nextBuffer];
         }
 
 
@@ -76,7 +461,6 @@ namespace SharpDXAudioTest
         {
             this.x3dInstance = audioState.X3DInstance;
             this.useRedirectToLFE = audioState.UseRedirectToLFE;
-            this.inputChannels = audioState.InputChannels;
             this.outputChannels = audioState.OutputChannels;
 
             // Setup 3D audio structs
@@ -115,15 +499,27 @@ namespace SharpDXAudioTest
             };
 
             this.dspSettings = new DspSettings(inputChannels, outputChannels);
+
+            this.initialized3D = true;
         }
         public void Calculate2D(float fElapsedTime, ListenerInstance listenerInstance, EmitterInstance emitterInstance)
         {
+            if (!initialized3D)
+            {
+                return;
+            }
+
             Calculate(fElapsedTime, listenerInstance, emitterInstance, false);
 
             Apply3D();
         }
         public void Calculate3D(float fElapsedTime, ListenerInstance listenerInstance, EmitterInstance emitterInstance)
         {
+            if (!initialized3D)
+            {
+                return;
+            }
+
             Calculate(fElapsedTime, listenerInstance, emitterInstance, true);
 
             Apply3D();
@@ -207,16 +603,23 @@ namespace SharpDXAudioTest
         }
         private void Apply3D()
         {
-            if (this.sourceVoice == null)
+            if (!initialized3D)
             {
                 return;
             }
 
-            // Apply X3DAudio generated DSP settings to XAudio2
-            this.sourceVoice.SetFrequencyRatio(this.dspSettings.DopplerFactor);
+            if (this.SourceVoice == null)
+            {
+                return;
+            }
 
-            this.sourceVoice.SetOutputMatrix(this.masteringVoice, inputChannels, outputChannels, this.dspSettings.MatrixCoefficients);
-            this.sourceVoice.SetOutputFilterParameters(
+            var sourceVoice = this.SourceVoice;
+
+            // Apply X3DAudio generated DSP settings to XAudio2
+            sourceVoice.SetFrequencyRatio(this.dspSettings.DopplerFactor);
+
+            sourceVoice.SetOutputMatrix(this.masteringVoice, inputChannels, outputChannels, this.dspSettings.MatrixCoefficients);
+            sourceVoice.SetOutputFilterParameters(
                 this.masteringVoice,
                 new FilterParameters
                 {
@@ -230,8 +633,8 @@ namespace SharpDXAudioTest
                 return;
             }
 
-            this.sourceVoice.SetOutputMatrix(this.submixVoice, 1, 1, new[] { this.dspSettings.ReverbLevel });
-            this.sourceVoice.SetOutputFilterParameters(
+            sourceVoice.SetOutputMatrix(this.submixVoice, 1, 1, new[] { this.dspSettings.ReverbLevel });
+            sourceVoice.SetOutputFilterParameters(
                 this.submixVoice,
                 new FilterParameters
                 {
@@ -240,6 +643,7 @@ namespace SharpDXAudioTest
                     OneOverQ = 1.0f
                 });
         }
+
 
         public bool SetReverb(int nReverb)
         {
@@ -258,29 +662,81 @@ namespace SharpDXAudioTest
 
             return true;
         }
-        public void Start()
-        {
-            this.sourceVoice?.Start(0);
-        }
-        public void Stop()
-        {
-            this.sourceVoice?.Stop(0);
-        }
-        public float GetVolume()
-        {
-            float volume = 0;
-            this.sourceVoice?.GetVolume(out volume);
 
-            return volume;
-        }
-        public void SetVolume(float volume)
-        {
-            this.sourceVoice?.SetVolume(volume);
-        }
 
         public float[] GetMatrixCoefficients()
         {
             return dspSettings.MatrixCoefficients.ToArray();
         }
+
+        /// <summary>
+        /// Frees internal resources
+        /// </summary>
+        private void DisposePlayer()
+        {
+            Console.WriteLine("DisposePlayer Begin");
+
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+
+            audioDecoder?.Dispose();
+            audioDecoder = null;
+
+            submixVoice?.DestroyVoice();
+            submixVoice?.Dispose();
+            submixVoice = null;
+
+            SourceVoice?.Stop(0);
+            SourceVoice?.DestroyVoice();
+            SourceVoice?.Dispose();
+            SourceVoice = null;
+
+            for (int i = 0; i < BufferCount; i++)
+            {
+                if (memBuffers[i].Pointer == IntPtr.Zero)
+                {
+                    // Disposed yet
+                    continue;
+                }
+
+                Utilities.FreeMemory(memBuffers[i].Pointer);
+                memBuffers[i].Pointer = IntPtr.Zero;
+                memBuffers[i].Size = 0;
+            }
+
+            Console.WriteLine("DisposePlayer End");
+        }
+
+        /// <summary>
+        /// On source voice buffer ends
+        /// </summary>
+        /// <param name="obj">Data pointer</param>
+        private void SourceVoiceBufferEnd(IntPtr obj)
+        {
+            bufferEndEvent.Set();
+        }
+    }
+
+    /// <summary>
+    /// State of the audio player.
+    /// </summary>
+    public enum AudioPlayerState
+    {
+        /// <summary>
+        /// The player is stopped (default).
+        /// </summary>
+        Stopped,
+        /// <summary>
+        /// The player is playing a sound.
+        /// </summary>
+        Playing,
+        /// <summary>
+        /// The player is paused.
+        /// </summary>
+        Paused,
     }
 }

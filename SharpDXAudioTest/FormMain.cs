@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace SharpDXAudioTest
@@ -15,6 +14,7 @@ namespace SharpDXAudioTest
         TimeSpan gameTime = TimeSpan.Zero;
         bool resume = false;
         float elapsedTime = 0;
+        bool startAudio = true;
 
         ListenerInstance listenerInstance = null;
 
@@ -47,7 +47,7 @@ namespace SharpDXAudioTest
             InitUI();
 
             audioState = new AudioState(48000);
-            music = audioState.InitializeVoice("MusicMono.wav");
+            music = audioState.InitializeVoice("Music.mp3");
             helicopter = audioState.InitializeVoice("heli.wav", true);
 
             InitAgents();
@@ -61,39 +61,6 @@ namespace SharpDXAudioTest
             tbHelicopter.Value = (int)helicopterVolume;
 
             gameTime = DateTime.Now.TimeOfDay;
-
-            Task.Run(async () =>
-            {
-                bool startAudio = true;
-
-                bool res = true;
-                while (res)
-                {
-                    TimeSpan prevTime = gameTime;
-                    gameTime = DateTime.Now.TimeOfDay;
-                    elapsedTime = (float)(gameTime - prevTime).TotalSeconds;
-
-                    if (!UpdateAudio(elapsedTime))
-                    {
-                        res = false;
-                    }
-
-                    UpdateText();
-
-                    await Task.Delay(TimeSpan.FromMilliseconds(1000f / 60f));
-
-                    if (startAudio)
-                    {
-                        helicopter.Start();
-                        music.Start();
-
-                        startAudio = false;
-                    }
-                }
-
-                this.Close();
-
-            }).ConfigureAwait(false);
         }
         private void FormMain_FormClosing(object sender, FormClosingEventArgs e)
         {
@@ -195,6 +162,27 @@ namespace SharpDXAudioTest
             helicopterVolume = tbHelicopter.Value / (float)tbHelicopter.Maximum * 100f;
 
             helicopter.SetVolume(helicopterVolume / 100f);
+        }
+        private void TimerUpdate_Tick(object sender, EventArgs e)
+        {
+            TimeSpan prevTime = gameTime;
+            gameTime = DateTime.Now.TimeOfDay;
+            elapsedTime = (float)(gameTime - prevTime).TotalSeconds;
+
+            if (!UpdateAudio(elapsedTime))
+            {
+                return;
+            }
+
+            UpdateText();
+
+            if (startAudio)
+            {
+                helicopter.Play();
+                music.Play();
+
+                startAudio = false;
+            }
         }
 
         private void UpdateText()
@@ -315,23 +303,14 @@ namespace SharpDXAudioTest
         {
             voices3d.Clear();
 
-            if (helicopter != null)
-            {
-                helicopter.Dispose();
-                helicopter = null;
-            }
+            helicopter?.Dispose();
+            helicopter = null;
 
-            if (music != null)
-            {
-                music.Dispose();
-                music = null;
-            }
+            music?.Dispose();
+            music = null;
 
-            if (audioState != null)
-            {
-                audioState.Dispose();
-                audioState = null;
-            }
+            audioState?.Dispose();
+            audioState = null;
         }
     }
 }
