@@ -11,7 +11,7 @@ namespace SharpDXAudioTest
     {
         AudioState audioState;
         int frameToApply3DAudio = 0;
-        TimeSpan gameTime = TimeSpan.Zero;
+        TimeSpan gameTime = DateTime.Now.TimeOfDay;
         bool resume = false;
         float elapsedTime = 0;
         bool startAudio = true;
@@ -46,7 +46,9 @@ namespace SharpDXAudioTest
         {
             InitUI();
 
-            audioState = new AudioState(48000);
+            audioState = new AudioState();
+            audioState.SetVolume(0.5f);
+
             music = audioState.InitializeVoice("Music.mp3");
             helicopter = audioState.InitializeVoice("heli.wav", true);
 
@@ -59,8 +61,6 @@ namespace SharpDXAudioTest
             tbMasterVolume.Value = (int)masterVolume;
             tbMusic.Value = (int)musicVolume;
             tbHelicopter.Value = (int)helicopterVolume;
-
-            gameTime = DateTime.Now.TimeOfDay;
         }
         private void FormMain_FormClosing(object sender, FormClosingEventArgs e)
         {
@@ -165,23 +165,31 @@ namespace SharpDXAudioTest
         }
         private void TimerUpdate_Tick(object sender, EventArgs e)
         {
-            TimeSpan prevTime = gameTime;
-            gameTime = DateTime.Now.TimeOfDay;
-            elapsedTime = (float)(gameTime - prevTime).TotalSeconds;
-
-            if (!UpdateAudio(elapsedTime))
+            try
             {
-                return;
+                TimeSpan prevTime = gameTime;
+                gameTime = DateTime.Now.TimeOfDay;
+                elapsedTime = (float)(gameTime - prevTime).TotalSeconds;
+
+                if (!UpdateAudio(elapsedTime))
+                {
+                    this.txtData.Text = "UpdateAudio error";
+                    return;
+                }
+
+                UpdateText();
+
+                if (startAudio)
+                {
+                    helicopter.Play();
+                    music.Play();
+
+                    startAudio = false;
+                }
             }
-
-            UpdateText();
-
-            if (startAudio)
+            catch (Exception ex)
             {
-                helicopter.Play();
-                music.Play();
-
-                startAudio = false;
+                this.txtData.Text = $"TimerUpdate error. {ex.Message}";
             }
         }
 

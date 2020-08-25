@@ -116,7 +116,6 @@ namespace SharpDXAudioTest
             SourceVoice.BufferEnd += SourceVoiceBufferEnd;
 
             // Read in the wave file
-            SubmixVoice mixVoice = null;
             VoiceSendDescriptor[] sendDescriptors;
 
             if (useReverb)
@@ -137,7 +136,7 @@ namespace SharpDXAudioTest
                         }
                     };
 
-                    mixVoice = new SubmixVoice(device, inputChannels, outputSample, SubmixVoiceFlags.None, 0, effectChain);
+                    submixVoice = new SubmixVoice(device, 1, outputSample, SubmixVoiceFlags.None, 0, effectChain);
 
                     // Play the wave using a source voice that sends to both the submix and mastering voices
                     sendDescriptors = new[]
@@ -145,7 +144,7 @@ namespace SharpDXAudioTest
                         // LPF direct-path
                         new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = this.masteringVoice },
                         // LPF reverb-path -- omit for better performance at the cost of less realistic occlusion
-                        new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = mixVoice },
+                        new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = submixVoice },
                     };
                 }
             }
