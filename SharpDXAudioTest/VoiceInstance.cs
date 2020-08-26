@@ -20,7 +20,7 @@ namespace SharpDXAudioTest
 
         private readonly MasteringVoice masteringVoice;
         private readonly AudioBuffer[] audioBuffers;
-        private readonly DataPointer[] memBuffers;
+        private readonly DataBuffer[] memBuffers;
         private readonly Stopwatch clock = new Stopwatch();
         private readonly ManualResetEvent playEvent = new ManualResetEvent(false);
         private readonly ManualResetEvent waitForPlayToOutput = new ManualResetEvent(false);
@@ -96,17 +96,12 @@ namespace SharpDXAudioTest
 
             // Pre-allocate buffers
             audioBuffers = new AudioBuffer[BufferCount];
-            memBuffers = new DataPointer[BufferCount];
+            memBuffers = new DataBuffer[BufferCount];
 
             for (int i = 0; i < BufferCount; i++)
             {
                 audioBuffers[i] = new AudioBuffer();
-
-                memBuffers[i] = new DataPointer()
-                {
-                    Pointer = Utilities.AllocateMemory(BufferDefaultSize),
-                    Size = BufferDefaultSize,
-                };
+                memBuffers[i] = new DataBuffer(BufferDefaultSize);
             }
 
             audioDecoder = new AudioDecoder(File.OpenRead(fileName));
@@ -436,26 +431,26 @@ namespace SharpDXAudioTest
             // Check that our ring buffer has enough space to store the audio buffer.
             if (bufferPointer.Size > memBuffers[nextBuffer].Size)
             {
-                if (memBuffers[nextBuffer].Pointer != IntPtr.Zero)
-                {
-                    Utilities.FreeMemory(memBuffers[nextBuffer].Pointer);
-                }
-
-                memBuffers[nextBuffer].Pointer = Utilities.AllocateMemory(bufferPointer.Size);
-                memBuffers[nextBuffer].Size = bufferPointer.Size;
+                memBuffers[nextBuffer].Dispose();
+                memBuffers[nextBuffer] = new DataBuffer(bufferPointer.Size);
             }
 
-            // Copy the memory from MediaFoundation AudioDecoder to the buffer that is going to be played.
-            Utilities.CopyMemory(memBuffers[nextBuffer].Pointer, bufferPointer.Pointer, bufferPointer.Size);
+            // Copy to data fuffer
+            memBuffers[nextBuffer].Set(0, bufferPointer.ToArray());
 
             // Set the pointer to the data.
-            audioBuffers[nextBuffer].AudioDataPointer = memBuffers[nextBuffer].Pointer;
+            audioBuffers[nextBuffer].AudioDataPointer = memBuffers[nextBuffer].DataPointer;
             audioBuffers[nextBuffer].AudioBytes = bufferPointer.Size;
 
             return audioBuffers[nextBuffer];
         }
 
-
+        /// <summary>
+        /// Initializes the 3d support
+        /// </summary>
+        /// <param name="audioState">Audio state</param>
+        /// <param name="emitterInstance">Emitter</param>
+        /// <param name="listenerInstance">Listener</param>
         public void Initialize3D(AudioState audioState, EmitterInstance emitterInstance, ListenerInstance listenerInstance)
         {
             this.x3dInstance = audioState.X3DInstance;
@@ -501,6 +496,12 @@ namespace SharpDXAudioTest
 
             this.initialized3D = true;
         }
+        /// <summary>
+        /// Calculates 2d instance positions
+        /// </summary>
+        /// <param name="fElapsedTime">Elpased time</param>
+        /// <param name="listenerInstance">Listener instance</param>
+        /// <param name="emitterInstance">Emitter instance</param>
         public void Calculate2D(float fElapsedTime, ListenerInstance listenerInstance, EmitterInstance emitterInstance)
         {
             if (!initialized3D)
@@ -512,6 +513,12 @@ namespace SharpDXAudioTest
 
             Apply3D();
         }
+        /// <summary>
+        /// Calculates 3d instance positions
+        /// </summary>
+        /// <param name="fElapsedTime">Elpased time</param>
+        /// <param name="listenerInstance">Listener instance</param>
+        /// <param name="emitterInstance">Emitter instance</param>
         public void Calculate3D(float fElapsedTime, ListenerInstance listenerInstance, EmitterInstance emitterInstance)
         {
             if (!initialized3D)
@@ -523,6 +530,13 @@ namespace SharpDXAudioTest
 
             Apply3D();
         }
+        /// <summary>
+        /// Calculates instance positions
+        /// </summary>
+        /// <param name="fElapsedTime">Elpased time</param>
+        /// <param name="listenerInstance">Listener instance</param>
+        /// <param name="emitterInstance">Emitter instance</param>
+        /// <param name="calc3D">Use 3d coordinates</param>
         private void Calculate(float fElapsedTime, ListenerInstance listenerInstance, EmitterInstance emitterInstance, bool calc3D)
         {
             if (listenerInstance.Position != this.listener.Position)
@@ -600,6 +614,9 @@ namespace SharpDXAudioTest
                 dwCalcFlags,
                 this.dspSettings);
         }
+        /// <summary>
+        /// Apply 3d configuration to voice
+        /// </summary>
         private void Apply3D()
         {
             if (!initialized3D)
@@ -643,7 +660,10 @@ namespace SharpDXAudioTest
                 });
         }
 
-
+        /// <summary>
+        /// Set reverb to voice
+        /// </summary>
+        /// <param name="nReverb">Reverb index</param>
         public bool SetReverb(int nReverb)
         {
             if (submixVoice == null)
@@ -662,7 +682,9 @@ namespace SharpDXAudioTest
             return true;
         }
 
-
+        /// <summary>
+        /// Gets the voice matrix coheficients
+        /// </summary>
         public float[] GetMatrixCoefficients()
         {
             return dspSettings.MatrixCoefficients.ToArray();
@@ -696,15 +718,7 @@ namespace SharpDXAudioTest
 
             for (int i = 0; i < BufferCount; i++)
             {
-                if (memBuffers[i].Pointer == IntPtr.Zero)
-                {
-                    // Disposed yet
-                    continue;
-                }
-
-                Utilities.FreeMemory(memBuffers[i].Pointer);
-                memBuffers[i].Pointer = IntPtr.Zero;
-                memBuffers[i].Size = 0;
+                memBuffers[i].Dispose();
             }
 
             Console.WriteLine("DisposePlayer End");
