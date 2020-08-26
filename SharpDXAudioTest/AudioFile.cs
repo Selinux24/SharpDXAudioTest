@@ -25,6 +25,9 @@ namespace SharpDXAudioTest
             return new AudioFile(fileName);
         }
 
+        private IEnumerator<DataPointer> sampleIterator = null;
+        private int currentSample = 0;
+
         private readonly AudioDecoder audioDecoder;
         private readonly AudioBuffer[] audioBuffers;
         private readonly DataBuffer[] memBuffers;
@@ -111,30 +114,34 @@ namespace SharpDXAudioTest
         }
 
         /// <summary>
-        /// Gets the sample iterator at the starting position
+        /// Set sound position
         /// </summary>
-        /// <returns>Returns the sample iterator</returns>
-        public IEnumerator<DataPointer> GetSampleIterator()
+        /// <param name="start">Start time</param>
+        public void SetPosition(TimeSpan start)
         {
-            return audioDecoder.GetSamples().GetEnumerator();
+            sampleIterator = audioDecoder.GetSamples(start).GetEnumerator();
+            currentSample = 0;
         }
-        /// <summary>
-        /// Gets the sample iterator at the specified position
-        /// </summary>
-        /// <param name="start">Starting position</param>
-        /// <returns>Returns the sample iterator</returns>
-        public IEnumerator<DataPointer> GetSampleIterator(TimeSpan start)
-        {
-            return audioDecoder.GetSamples(start).GetEnumerator();
-        }
+
         /// <summary>
         /// Reads the buffer data from the decoder sample pointer, and writes into the next audio buffer to submit to the Source Voice
         /// </summary>
-        /// <param name="bufferPointer">Buffer pointer</param>
-        /// <param name="nextBuffer">Next buffer index</param>
-        /// <returns>Returns the audio buffer prepared to submit</returns>
-        public AudioBuffer GetAudioBuffer(DataPointer bufferPointer)
+        /// <param name="buffer">Returns the audio buffer prepared to submit</param>
+        /// <returns>Returns true if there are more buffers to play</returns>
+        public bool GetAudioBuffer(out AudioBuffer buffer)
         {
+            buffer = null;
+
+            if (!sampleIterator.MoveNext())
+            {
+                //End of audio
+                return false;
+            }
+
+            Console.WriteLine($"Sample: {currentSample++}");
+
+            var bufferPointer = sampleIterator.Current;
+
             // Go to next entry in the ringg audio buffer
             nextBuffer = nextBuffer++ % BufferCount;
 
@@ -152,17 +159,19 @@ namespace SharpDXAudioTest
             audioBuffers[nextBuffer].AudioDataPointer = memBuffers[nextBuffer].DataPointer;
             audioBuffers[nextBuffer].AudioBytes = bufferPointer.Size;
 
-            return audioBuffers[nextBuffer];
+            buffer = audioBuffers[nextBuffer];
+
+            return true;
         }
         /// <summary>
         /// Gets the complete audio buffer
         /// </summary>
         /// <returns>Returns the audio buffer prepared to submit</returns>
-        public AudioBuffer GetAudioBuffer()
+        public AudioBuffer GetCompleteAudioBuffer()
         {
             List<byte> bufferBytes = new List<byte>();
 
-            var iterator = GetSampleIterator();
+            var iterator = audioDecoder.GetSamples().GetEnumerator();
             while (iterator.MoveNext())
             {
                 var pointer = iterator.Current;

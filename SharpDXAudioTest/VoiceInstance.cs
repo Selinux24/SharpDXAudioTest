@@ -27,7 +27,6 @@ namespace SharpDXAudioTest
         private TimeSpan nextPlayPosition;
         private TimeSpan playPositionStart;
         private int playCounter;
-        private int currentSample = 0;
         private bool disposed = false;
 
         private readonly int inputChannels;
@@ -176,7 +175,22 @@ namespace SharpDXAudioTest
         {
             if (disposing)
             {
-                DisposePlayer();
+                disposed = true;
+
+                Console.WriteLine("DisposePlayer Begin");
+
+                voice?.Dispose();
+
+                submixVoice?.DestroyVoice();
+                submixVoice?.Dispose();
+                submixVoice = null;
+
+                SourceVoice?.Stop(0);
+                SourceVoice?.DestroyVoice();
+                SourceVoice?.Dispose();
+                SourceVoice = null;
+
+                Console.WriteLine("DisposePlayer End");
             }
         }
 
@@ -306,10 +320,6 @@ namespace SharpDXAudioTest
 
                 throw;
             }
-            finally
-            {
-                DisposePlayer();
-            }
         }
         /// <summary>
         /// Plays all sound samples
@@ -325,8 +335,7 @@ namespace SharpDXAudioTest
             int currentPlayCounter = playCounter;
 
             // Get the decoded samples from the specified starting position.
-            var sampleIterator = voice.GetSampleIterator(playPositionStart);
-            currentSample = 0;
+            voice.SetPosition(playPositionStart);
 
             bool isFirstTime = true;
 
@@ -374,15 +383,6 @@ namespace SharpDXAudioTest
                     break;
                 }
 
-                // Check that there is a next sample
-                if (!sampleIterator.MoveNext())
-                {
-                    endOfSound = true;
-                    break;
-                }
-
-                Console.WriteLine($"Sample: {currentSample++}");
-
                 // If there was a change in the play position, restart the sample iterator.
                 if (currentPlayCounter != playCounter)
                 {
@@ -390,7 +390,11 @@ namespace SharpDXAudioTest
                 }
 
                 // Retrieve a pointer to the sample data
-                var audioBuffer = voice.GetAudioBuffer(sampleIterator.Current);
+                if (!voice.GetAudioBuffer(out var audioBuffer))
+                {
+                    endOfSound = true;
+                    break;
+                }
 
                 // If this is a first play, restart the clock and notify play method.
                 if (isFirstTime)
@@ -653,34 +657,6 @@ namespace SharpDXAudioTest
         public float[] GetMatrixCoefficients()
         {
             return dspSettings.MatrixCoefficients.ToArray();
-        }
-
-        /// <summary>
-        /// Frees internal resources
-        /// </summary>
-        private void DisposePlayer()
-        {
-            Console.WriteLine("DisposePlayer Begin");
-
-            if (disposed)
-            {
-                return;
-            }
-
-            disposed = true;
-
-            voice?.Dispose();
-
-            submixVoice?.DestroyVoice();
-            submixVoice?.Dispose();
-            submixVoice = null;
-
-            SourceVoice?.Stop(0);
-            SourceVoice?.DestroyVoice();
-            SourceVoice?.Dispose();
-            SourceVoice = null;
-
-            Console.WriteLine("DisposePlayer End");
         }
 
         /// <summary>
