@@ -65,6 +65,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AudioConstants.cs" />
+    <Compile Include="AudioFile.cs" />
     <Compile Include="AudioReader.cs" />
     <Compile Include="VoiceInstance.cs" />
     <Compile Include="AudioState.cs" />

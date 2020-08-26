@@ -147,18 +147,12 @@ namespace SharpDXAudioTest
         /// Initialize voice instance
         /// </summary>
         /// <param name="filePath">Sound file</param>
+        /// <param name="looped">Looped sound</param>
         /// <param name="useReverb">Use reverb with the voice</param>
         /// <returns>Returns a voice instance</returns>
-        public VoiceInstance InitializeVoice(string filePath, bool useReverb = false)
+        public VoiceInstance InitializeVoice(string filePath, bool looped = false, bool useReverb = false)
         {
-            VoiceInstance player = new VoiceInstance(device, this.MasteringVoice, filePath, useReverb, OutputSampleRate)
-            {
-                IsRepeating = true
-            };
-
-            player.SetReverb(0);
-
-            return player;
+            return new VoiceInstance(device, this.MasteringVoice, filePath, looped, useReverb);
         }
 
         public void Start()

@@ -1,31 +1,28 @@
 ﻿using SharpDX;
-using SharpDX.MediaFoundation;
 using SharpDX.X3DAudio;
 using SharpDX.XAudio2;
 using SharpDX.XAudio2.Fx;
 using System;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SharpDXAudioTest
 {
+    /// <summary>
+    /// Voice instance
+    /// </summary>
     class VoiceInstance : IDisposable
     {
         private const int WaitPrecision = 1;
-        private const int BufferCount = 3;
-        private const int BufferDefaultSize = 32 * 1024; // default size 32Kb
 
+        private readonly AudioFile voice;
         private readonly MasteringVoice masteringVoice;
-        private readonly AudioBuffer[] audioBuffers;
-        private readonly DataBuffer[] memBuffers;
         private readonly Stopwatch clock = new Stopwatch();
         private readonly ManualResetEvent playEvent = new ManualResetEvent(false);
         private readonly ManualResetEvent waitForPlayToOutput = new ManualResetEvent(false);
         private readonly AutoResetEvent bufferEndEvent = new AutoResetEvent(false);
-        private AudioDecoder audioDecoder;
         private TimeSpan playPosition;
         private TimeSpan nextPlayPosition;
         private TimeSpan playPositionStart;
@@ -54,14 +51,14 @@ namespace SharpDXAudioTest
         /// Gets the state of this instance.
         /// </summary>
         /// <value>The state.</value>
-        public AudioPlayerState State { get; private set; } = AudioPlayerState.Stopped;
+        public VoiceInstanceState State { get; private set; } = VoiceInstanceState.Stopped;
         /// <summary>
         /// Gets the duration in seconds of the current sound.
         /// </summary>
         /// <value>The duration.</value>
         public TimeSpan Duration
         {
-            get { return audioDecoder.Duration; }
+            get { return voice.Duration; }
         }
         /// <summary>
         /// Gets or sets the position in seconds.
@@ -83,35 +80,28 @@ namespace SharpDXAudioTest
         /// Gets or sets a value indicating whether to the sound is looping when the end of the buffer is reached.
         /// </summary>
         /// <value><c>true</c> if to loop the sound; otherwise, <c>false</c>.</value>
-        public bool IsRepeating { get; set; }
+        public bool Looped { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VoiceInstance" /> class.
         /// </summary>
-        /// <param name="xaudio2">The xaudio2 engine.</param>
-        /// <param name="audioStream">The input audio stream.</param>
-        public VoiceInstance(XAudio2 device, MasteringVoice masteringVoice, string fileName, bool useReverb, int outputSample)
+        /// <param name="device">Device</param>
+        /// <param name="masteringVoice">Mastering voice</param>
+        /// <param name="fileName">File name</param>
+        /// <param name="looped">Looped</param>
+        /// <param name="useReverb">Use reverb</param>
+        public VoiceInstance(XAudio2 device, MasteringVoice masteringVoice, string fileName, bool looped, bool useReverb)
         {
             this.masteringVoice = masteringVoice;
+            Looped = looped;
 
-            // Pre-allocate buffers
-            audioBuffers = new AudioBuffer[BufferCount];
-            memBuffers = new DataBuffer[BufferCount];
+            // Read in the file
+            voice = new AudioFile(fileName);
 
-            for (int i = 0; i < BufferCount; i++)
-            {
-                audioBuffers[i] = new AudioBuffer();
-                memBuffers[i] = new DataBuffer(BufferDefaultSize);
-            }
+            inputChannels = voice.WaveFormat.Channels;
 
-            audioDecoder = new AudioDecoder(File.OpenRead(fileName));
-            inputChannels = audioDecoder.WaveFormat.Channels;
-
-            SourceVoice = new SourceVoice(device, audioDecoder.WaveFormat, VoiceFlags.None, 2.0f, null);
+            SourceVoice = new SourceVoice(device, voice.WaveFormat, VoiceFlags.None, 2.0f, null);
             SourceVoice.BufferEnd += SourceVoiceBufferEnd;
-
-            // Read in the wave file
-            VoiceSendDescriptor[] sendDescriptors;
 
             if (useReverb)
             {
@@ -131,29 +121,33 @@ namespace SharpDXAudioTest
                         }
                     };
 
-                    submixVoice = new SubmixVoice(device, 1, outputSample, SubmixVoiceFlags.None, 0, effectChain);
+                    submixVoice = new SubmixVoice(device, 1, masteringVoice.VoiceDetails.InputSampleRate, SubmixVoiceFlags.None, 0, effectChain);
 
                     // Play the wave using a source voice that sends to both the submix and mastering voices
-                    sendDescriptors = new[]
+                    VoiceSendDescriptor[] sendDescriptors = new[]
                     {
                         // LPF direct-path
                         new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = this.masteringVoice },
                         // LPF reverb-path -- omit for better performance at the cost of less realistic occlusion
                         new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = submixVoice },
                     };
+
+                    SourceVoice.SetOutputVoices(sendDescriptors);
                 }
+
+                SetReverb(0);
             }
             else
             {
                 // Play the wave using a source voice that sends to both the submix and mastering voices
-                sendDescriptors = new[]
+                VoiceSendDescriptor[] sendDescriptors = new[]
                 {
                     // LPF direct-path
                     new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = this.masteringVoice },
                 };
-            }
 
-            SourceVoice.SetOutputVoices(sendDescriptors);
+                SourceVoice.SetOutputVoices(sendDescriptors);
+            }
 
             // Starts the playing thread
             Task.Factory.StartNew(PlayAsync, TaskCreationOptions.LongRunning);
@@ -191,17 +185,17 @@ namespace SharpDXAudioTest
         /// </summary>
         public void Play()
         {
-            if (State == AudioPlayerState.Stopped)
+            if (State == VoiceInstanceState.Stopped)
             {
                 SourceVoice.Start(0);
 
                 playCounter++;
                 waitForPlayToOutput.Reset();
-                State = AudioPlayerState.Playing;
+                State = VoiceInstanceState.Playing;
                 playEvent.Set();
                 waitForPlayToOutput.WaitOne();
             }
-            else if (State == AudioPlayerState.Paused)
+            else if (State == VoiceInstanceState.Paused)
             {
                 Resume();
             }
@@ -211,12 +205,12 @@ namespace SharpDXAudioTest
         /// </summary>
         public void Pause()
         {
-            if (State == AudioPlayerState.Playing)
+            if (State == VoiceInstanceState.Playing)
             {
                 SourceVoice.Stop();
 
                 clock.Stop();
-                State = AudioPlayerState.Paused;
+                State = VoiceInstanceState.Paused;
                 playEvent.Reset();
             }
         }
@@ -225,12 +219,12 @@ namespace SharpDXAudioTest
         /// </summary>
         public void Resume()
         {
-            if (State == AudioPlayerState.Paused)
+            if (State == VoiceInstanceState.Paused)
             {
                 SourceVoice.Start();
 
                 clock.Start();
-                State = AudioPlayerState.Playing;
+                State = VoiceInstanceState.Playing;
                 playEvent.Set();
             }
         }
@@ -239,7 +233,7 @@ namespace SharpDXAudioTest
         /// </summary>
         public void Stop()
         {
-            if (State != AudioPlayerState.Stopped)
+            if (State != VoiceInstanceState.Stopped)
             {
                 SourceVoice.Stop(0);
 
@@ -249,7 +243,7 @@ namespace SharpDXAudioTest
                 playCounter++;
 
                 clock.Stop();
-                State = AudioPlayerState.Stopped;
+                State = VoiceInstanceState.Stopped;
                 playEvent.Reset();
             }
         }
@@ -300,7 +294,7 @@ namespace SharpDXAudioTest
                     PlayAllSamples(out bool endOfSong);
 
                     // If the song is not looping (by default), then stop the audio player.
-                    if (State == AudioPlayerState.Playing && endOfSong && !IsRepeating)
+                    if (State == VoiceInstanceState.Playing && endOfSong && !Looped)
                     {
                         Stop();
                     }
@@ -325,15 +319,13 @@ namespace SharpDXAudioTest
         {
             endOfSound = false;
 
-            int nextBuffer = 0;
-
             clock.Restart();
             playPositionStart = nextPlayPosition;
             playPosition = playPositionStart;
             int currentPlayCounter = playCounter;
 
             // Get the decoded samples from the specified starting position.
-            var sampleIterator = audioDecoder.GetSamples(playPositionStart).GetEnumerator();
+            var sampleIterator = voice.GetSampleIterator(playPositionStart);
             currentSample = 0;
 
             bool isFirstTime = true;
@@ -345,7 +337,7 @@ namespace SharpDXAudioTest
                     break;
                 }
 
-                while (State != AudioPlayerState.Stopped)
+                while (State != VoiceInstanceState.Stopped)
                 {
                     // While the player is not stopped, wait for the play event
                     if (playEvent.WaitOne(WaitPrecision))
@@ -356,7 +348,7 @@ namespace SharpDXAudioTest
                 }
 
                 // If the player is stopped, then break of this loop
-                if (State == AudioPlayerState.Stopped)
+                if (State == VoiceInstanceState.Stopped)
                 {
                     nextPlayPosition = TimeSpan.Zero;
                     break;
@@ -369,14 +361,14 @@ namespace SharpDXAudioTest
                 }
 
                 // If the player is not stopped and the buffer queue is full, wait for the end of a buffer.
-                while (State != AudioPlayerState.Stopped && !disposed && SourceVoice.State.BuffersQueued == BufferCount)
+                while (State != VoiceInstanceState.Stopped && !disposed && SourceVoice.State.BuffersQueued == voice.BufferCount)
                 {
                     bufferEndEvent.WaitOne(WaitPrecision);
                 }
                 Console.WriteLine("bufferEndEvent.WaitOne - Load new buffer");
 
                 // If the player is stopped or disposed, then break of this loop
-                if (State == AudioPlayerState.Stopped)
+                if (State == VoiceInstanceState.Stopped)
                 {
                     nextPlayPosition = TimeSpan.Zero;
                     break;
@@ -398,7 +390,7 @@ namespace SharpDXAudioTest
                 }
 
                 // Retrieve a pointer to the sample data
-                var audioBuffer = PrepareBuffer(sampleIterator.Current, nextBuffer);
+                var audioBuffer = voice.GetAudioBuffer(sampleIterator.Current);
 
                 // If this is a first play, restart the clock and notify play method.
                 if (isFirstTime)
@@ -415,34 +407,7 @@ namespace SharpDXAudioTest
 
                 // Submit the audio buffer to xaudio2
                 SourceVoice.SubmitSourceBuffer(audioBuffer, null);
-
-                // Go to next entry in the ringg audio buffer
-                nextBuffer = ++nextBuffer % BufferCount;
             }
-        }
-        /// <summary>
-        /// Reads the buffer data from the decoder sample pointer, and writes into the next audio buffer to submit to the Source Voice
-        /// </summary>
-        /// <param name="bufferPointer">Buffer pointer</param>
-        /// <param name="nextBuffer">Next buffer index</param>
-        /// <returns>Returns the audio buffer prepared to submit</returns>
-        private AudioBuffer PrepareBuffer(DataPointer bufferPointer, int nextBuffer)
-        {
-            // Check that our ring buffer has enough space to store the audio buffer.
-            if (bufferPointer.Size > memBuffers[nextBuffer].Size)
-            {
-                memBuffers[nextBuffer].Dispose();
-                memBuffers[nextBuffer] = new DataBuffer(bufferPointer.Size);
-            }
-
-            // Copy to data fuffer
-            memBuffers[nextBuffer].Set(0, bufferPointer.ToArray());
-
-            // Set the pointer to the data.
-            audioBuffers[nextBuffer].AudioDataPointer = memBuffers[nextBuffer].DataPointer;
-            audioBuffers[nextBuffer].AudioBytes = bufferPointer.Size;
-
-            return audioBuffers[nextBuffer];
         }
 
         /// <summary>
@@ -704,8 +669,7 @@ namespace SharpDXAudioTest
 
             disposed = true;
 
-            audioDecoder?.Dispose();
-            audioDecoder = null;
+            voice?.Dispose();
 
             submixVoice?.DestroyVoice();
             submixVoice?.Dispose();
@@ -715,11 +679,6 @@ namespace SharpDXAudioTest
             SourceVoice?.DestroyVoice();
             SourceVoice?.Dispose();
             SourceVoice = null;
-
-            for (int i = 0; i < BufferCount; i++)
-            {
-                memBuffers[i].Dispose();
-            }
 
             Console.WriteLine("DisposePlayer End");
         }
@@ -735,20 +694,20 @@ namespace SharpDXAudioTest
     }
 
     /// <summary>
-    /// State of the audio player.
+    /// State of the voice instance.
     /// </summary>
-    public enum AudioPlayerState
+    public enum VoiceInstanceState
     {
         /// <summary>
-        /// The player is stopped (default).
+        /// Stopped
         /// </summary>
         Stopped,
         /// <summary>
-        /// The player is playing a sound.
+        /// Playing
         /// </summary>
         Playing,
         /// <summary>
-        /// The player is paused.
+        /// Paused
         /// </summary>
         Paused,
     }

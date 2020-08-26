@@ -49,8 +49,8 @@ namespace SharpDXAudioTest
             audioState = new AudioState();
             audioState.SetVolume(0.5f);
 
-            music = audioState.InitializeVoice("Music.mp3");
-            helicopter = audioState.InitializeVoice("heli.wav", true);
+            music = audioState.InitializeVoice("Music.mp3", true);
+            helicopter = audioState.InitializeVoice("heli.wav", true, true);
 
             InitAgents();
 
