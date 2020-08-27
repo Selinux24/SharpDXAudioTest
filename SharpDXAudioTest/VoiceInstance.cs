@@ -466,24 +466,7 @@ namespace SharpDXAudioTest
             this.initialized3D = true;
         }
         /// <summary>
-        /// Calculates 2d instance positions
-        /// </summary>
-        /// <param name="fElapsedTime">Elpased time</param>
-        /// <param name="listenerInstance">Listener instance</param>
-        /// <param name="emitterInstance">Emitter instance</param>
-        public void Calculate2D(float fElapsedTime, ListenerInstance listenerInstance, EmitterInstance emitterInstance)
-        {
-            if (!initialized3D)
-            {
-                return;
-            }
-
-            Calculate(fElapsedTime, listenerInstance, emitterInstance, false);
-
-            Apply3D();
-        }
-        /// <summary>
-        /// Calculates 3d instance positions
+        /// Calculates instance positions
         /// </summary>
         /// <param name="fElapsedTime">Elpased time</param>
         /// <param name="listenerInstance">Listener instance</param>
@@ -493,39 +476,6 @@ namespace SharpDXAudioTest
             if (!initialized3D)
             {
                 return;
-            }
-
-            Calculate(fElapsedTime, listenerInstance, emitterInstance, true);
-
-            Apply3D();
-        }
-        /// <summary>
-        /// Calculates instance positions
-        /// </summary>
-        /// <param name="fElapsedTime">Elpased time</param>
-        /// <param name="listenerInstance">Listener instance</param>
-        /// <param name="emitterInstance">Emitter instance</param>
-        /// <param name="calc3D">Use 3d coordinates</param>
-        private void Calculate(float fElapsedTime, ListenerInstance listenerInstance, EmitterInstance emitterInstance, bool calc3D)
-        {
-            if (listenerInstance.Position != this.listener.Position)
-            {
-                Vector3 v1 = listenerInstance.Position;
-                Vector3 v2 = this.listener.Position;
-
-                if (calc3D)
-                {
-                    // Calculate listener orientation
-                    this.listener.OrientFront = Vector3.Normalize(v1 - v2);
-                }
-                else
-                {
-                    // Calculate listener orientation in x-z plane
-                    var vDelta = v1 - v2;
-                    vDelta.Y = 0f;
-
-                    this.listener.OrientFront = Vector3.Normalize(vDelta);
-                }
             }
 
             if (listenerInstance.UseCone)
@@ -550,20 +500,22 @@ namespace SharpDXAudioTest
 
             if (fElapsedTime > 0)
             {
-                Vector3 v1 = listenerInstance.Position;
-                Vector3 v2 = this.listener.Position;
-                Vector3 lVelocity = (v1 - v2) / fElapsedTime;
+                Vector3 lVelocity = (listenerInstance.Position - this.listener.Position) / fElapsedTime;
 
-                this.listener.Position = v1;
                 this.listener.Velocity = lVelocity;
 
-                v1 = emitterInstance.Position;
-                v2 = this.emitter.Position;
-                Vector3 eVelocity = (v1 - v2) / fElapsedTime;
+                Vector3 eVelocity = (emitterInstance.Position - this.emitter.Position) / fElapsedTime;
 
-                this.emitter.Position = v1;
                 this.emitter.Velocity = eVelocity;
             }
+
+            this.listener.Position = listenerInstance.Position;
+            this.listener.OrientFront = listenerInstance.OrientFront;
+            this.listener.OrientTop = listenerInstance.OrientTop;
+
+            this.emitter.Position = emitterInstance.Position;
+            this.emitter.OrientFront = emitterInstance.OrientFront;
+            this.emitter.OrientTop = emitterInstance.OrientTop;
 
             CalculateFlags dwCalcFlags =
                 CalculateFlags.Matrix |
@@ -582,6 +534,8 @@ namespace SharpDXAudioTest
                 this.listener, this.emitter,
                 dwCalcFlags,
                 this.dspSettings);
+
+            Apply3D();
         }
         /// <summary>
         /// Apply 3d configuration to voice
@@ -667,24 +621,5 @@ namespace SharpDXAudioTest
         {
             bufferEndEvent.Set();
         }
-    }
-
-    /// <summary>
-    /// State of the voice instance.
-    /// </summary>
-    public enum VoiceInstanceState
-    {
-        /// <summary>
-        /// Stopped
-        /// </summary>
-        Stopped,
-        /// <summary>
-        /// Playing
-        /// </summary>
-        Playing,
-        /// <summary>
-        /// Paused
-        /// </summary>
-        Paused,
     }
 }

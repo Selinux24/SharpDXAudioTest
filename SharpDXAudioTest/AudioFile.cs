@@ -104,11 +104,11 @@ namespace SharpDXAudioTest
         {
             if (disposing)
             {
-                audioDecoder.Dispose();
+                audioDecoder?.Dispose();
 
                 for (int i = 0; i < BufferCount; i++)
                 {
-                    memBuffers[i].Dispose();
+                    memBuffers[i]?.Dispose();
                 }
             }
         }
@@ -143,7 +143,7 @@ namespace SharpDXAudioTest
             var bufferPointer = sampleIterator.Current;
 
             // Go to next entry in the ringg audio buffer
-            nextBuffer = nextBuffer++ % BufferCount;
+            nextBuffer = ++nextBuffer % BufferCount;
 
             // Check that our ring buffer has enough space to store the audio buffer.
             if (bufferPointer.Size > memBuffers[nextBuffer].Size)

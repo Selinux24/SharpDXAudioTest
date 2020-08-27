@@ -37,6 +37,54 @@ namespace SharpDXAudioTest
         readonly List<IAgent> agents = new List<IAgent>();
         readonly List<ToUpdate3DVoice> voices3d = new List<ToUpdate3DVoice>();
 
+        private static void MoveAgent(IAgent agent, Vector3 posDelta)
+        {
+            var pos = agent.Position + posDelta;
+
+            pos.X = Math.Min(AudioConstants.XMAX, pos.X);
+            pos.X = Math.Max(AudioConstants.XMIN, pos.X);
+            pos.Z = Math.Min(AudioConstants.ZMAX, pos.Z);
+            pos.Z = Math.Max(AudioConstants.ZMIN, pos.Z);
+
+            if (agent.Position == pos)
+            {
+                return;
+            }
+
+            var vDelta = pos - agent.Position;
+            vDelta.Y = 0f;
+
+            agent.Position = pos;
+            agent.OrientFront = Vector3.Normalize(vDelta);
+        }
+        private static string FormatOrientation(Vector3 orientation)
+        {
+            if (orientation == Vector3.ForwardLH)
+            {
+                return "Up"; // Form direction, not 3D real directio
+            }
+            else if (orientation == Vector3.BackwardLH)
+            {
+                return "Down"; // Form direction, not 3D real directio
+            }
+            else if (orientation == Vector3.Left)
+            {
+                return "Left";
+            }
+            else if (orientation == Vector3.Right)
+            {
+                return "Right";
+            }
+            else
+            {
+                return FormatPosition(orientation);
+            }
+        }
+        private static string FormatPosition(Vector3 position)
+        {
+            return $"{ position.X:00},{ position.Y:00},{ position.Z:00}";
+        }
+
         public FormMain()
         {
             InitializeComponent();
@@ -93,10 +141,7 @@ namespace SharpDXAudioTest
                 return;
             }
 
-            var pos = agent.Position;
-            pos.Z += 1;
-            pos.Z = Math.Min(AudioConstants.ZMAX, pos.Z);
-            agent.Position = pos;
+            MoveAgent(agent, Vector3.ForwardLH);
         }
         private void ButRight_Click(object sender, EventArgs e)
         {
@@ -106,10 +151,7 @@ namespace SharpDXAudioTest
                 return;
             }
 
-            var pos = agent.Position;
-            pos.X += 1;
-            pos.X = Math.Min(AudioConstants.XMAX, pos.X);
-            agent.Position = pos;
+            MoveAgent(agent, Vector3.Right);
         }
         private void ButDown_Click(object sender, EventArgs e)
         {
@@ -119,10 +161,7 @@ namespace SharpDXAudioTest
                 return;
             }
 
-            var pos = agent.Position;
-            pos.Z -= 1;
-            pos.Z = Math.Max(AudioConstants.ZMIN, pos.Z);
-            agent.Position = pos;
+            MoveAgent(agent, Vector3.BackwardLH);
         }
         private void ButLeft_Click(object sender, EventArgs e)
         {
@@ -132,10 +171,7 @@ namespace SharpDXAudioTest
                 return;
             }
 
-            var pos = agent.Position;
-            pos.X -= 1;
-            pos.X = Math.Max(AudioConstants.XMIN, pos.X);
-            agent.Position = pos;
+            MoveAgent(agent, Vector3.Left);
         }
         private void ChkListenerCone_CheckedChanged(object sender, EventArgs e)
         {
@@ -198,19 +234,21 @@ namespace SharpDXAudioTest
             var helicopterDsp = helicopter.GetMatrixCoefficients();
             var musicDsp = music.GetMatrixCoefficients();
 
-            string helicopterText = $"Helicopter      Pos {emitterHelicopter.Position.X:00},{emitterHelicopter.Position.Y:00},{emitterHelicopter.Position.Z:00}";
+            string helicopterText = $"Helicopter      Pos {FormatPosition(emitterHelicopter.Position)}";
             string helicopterDspText = $"Helicopter DSP.   L {helicopterDsp[0]:0.000} R {helicopterDsp[1]:0.000}";
-            string musicText = $"Music           Pos {emitterMusic.Position.X:00},{emitterMusic.Position.Y:00},{emitterMusic.Position.Z:00}";
+            string musicText = $"Music           Pos {FormatPosition(emitterMusic.Position)}";
             string musicDspText = $"Music DSP.        L {musicDsp[0]:0.000} R {musicDsp[1]:0.000}";
-            string listenerText = $"Listener        Pos {listenerInstance.Position.X:00},{listenerInstance.Position.Y:00},{listenerInstance.Position.Z:00}";
+            string listenerText = $"Listener        Pos {FormatPosition(listenerInstance.Position)}";
+            string listenerText2 = $"Listener        Dir {FormatOrientation(listenerInstance.OrientFront)}";
             string musicVolumeText = $"Music volume      {musicVolume:000}";
             string helicopterVolumeText = $"Helicopter volume {helicopterVolume:000}";
             string masterVolumeText = $"Master volume     {masterVolume:000}";
 
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine(listenerText);
             sb.AppendLine(helicopterText);
             sb.AppendLine(musicText);
+            sb.AppendLine(listenerText);
+            sb.AppendLine(listenerText2);
             sb.AppendLine();
             sb.AppendLine(helicopterDspText);
             sb.AppendLine(musicDspText);
@@ -220,10 +258,12 @@ namespace SharpDXAudioTest
             sb.AppendLine(masterVolumeText);
 
             if (this.InvokeRequired)
-                this.Invoke(new MethodInvoker(delegate ()
+            {
+                this.Invoke(new MethodInvoker(() =>
                 {
                     this.txtData.Text = sb.ToString();
                 }));
+            }
             else
             {
                 this.txtData.Text = sb.ToString();
@@ -268,26 +308,18 @@ namespace SharpDXAudioTest
         }
         bool UpdateAudio(float fElapsedTime)
         {
-            try
-            {
-                if (!audioState.Initialized)
-                {
-                    return false;
-                }
-
-                if (frameToApply3DAudio < voices3d.Count)
-                {
-                    var voice3d = voices3d[frameToApply3DAudio];
-                    voice3d.Voice.Calculate2D(fElapsedTime, listenerInstance, voice3d.Emitter);
-                }
-
-                frameToApply3DAudio++;
-                frameToApply3DAudio &= voices3d.Count + 1;
-            }
-            catch
+            if (!audioState.Initialized)
             {
                 return false;
             }
+
+            if (frameToApply3DAudio < voices3d.Count)
+            {
+                var voice3d = voices3d[frameToApply3DAudio];
+                voice3d.Voice.Calculate3D(fElapsedTime, listenerInstance, voice3d.Emitter);
+            }
+
+            frameToApply3DAudio = ++frameToApply3DAudio % voices3d.Count;
 
             return true;
         }
