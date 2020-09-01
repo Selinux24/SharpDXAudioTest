@@ -63,11 +63,11 @@ namespace SharpDXAudioTest
         {
             if (orientation == Vector3.ForwardLH)
             {
-                return "Up"; // Form direction, not 3D real directio
+                return "Down"; // Form direction, not 3D real directio
             }
             else if (orientation == Vector3.BackwardLH)
             {
-                return "Down"; // Form direction, not 3D real directio
+                return "Up"; // Form direction, not 3D real directio
             }
             else if (orientation == Vector3.Left)
             {
@@ -159,7 +159,8 @@ namespace SharpDXAudioTest
                 return;
             }
 
-            MoveAgent(agent, Vector3.ForwardLH);
+            MoveAgent(agent, Vector3.BackwardLH);
+            this.Invalidate();
         }
         private void ButRight_Click(object sender, EventArgs e)
         {
@@ -170,6 +171,7 @@ namespace SharpDXAudioTest
             }
 
             MoveAgent(agent, Vector3.Right);
+            this.Invalidate();
         }
         private void ButDown_Click(object sender, EventArgs e)
         {
@@ -179,7 +181,8 @@ namespace SharpDXAudioTest
                 return;
             }
 
-            MoveAgent(agent, Vector3.BackwardLH);
+            MoveAgent(agent, Vector3.ForwardLH);
+            this.Invalidate();
         }
         private void ButLeft_Click(object sender, EventArgs e)
         {
@@ -190,14 +193,17 @@ namespace SharpDXAudioTest
             }
 
             MoveAgent(agent, Vector3.Left);
+            this.Invalidate();
         }
         private void ChkListenerCone_CheckedChanged(object sender, EventArgs e)
         {
             listenerInstance.UseCone = !listenerInstance.UseCone;
+            this.Invalidate();
         }
         private void ChkListenerInnerRadius_CheckedChanged(object sender, EventArgs e)
         {
             listenerInstance.UseInnerRadius = !listenerInstance.UseInnerRadius;
+            this.Invalidate();
         }
         private void TbMasterVolume_Scroll(object sender, EventArgs e)
         {
@@ -337,7 +343,6 @@ namespace SharpDXAudioTest
 
             music.Initialize3D(audioState, emitterMusic, listenerInstance);
             voices3d.Add(new ToUpdate3DVoice { Voice = music, Emitter = emitterMusic });
-
         }
         bool UpdateAudio(float elapsedSeconds)
         {
@@ -384,6 +389,86 @@ namespace SharpDXAudioTest
 
             audioState?.Dispose();
             audioState = null;
+        }
+
+        void DrawCanvas()
+        {
+            var agent = agents.FirstOrDefault(a => a.Name == (string)cbAgent.SelectedItem);
+            System.Drawing.Color agentColor = System.Drawing.Color.Black;
+
+            using (var myBrush = new System.Drawing.SolidBrush(System.Drawing.Color.Red))
+            using (var myPen = new System.Drawing.Pen(System.Drawing.Color.Black))
+            using (var formGraphics = panCanvas.CreateGraphics())
+            {
+                formGraphics.Clear(System.Drawing.Color.White);
+
+                int radius = (int)(panCanvas.ClientRectangle.Width * 1.22f);
+
+                myBrush.Color = System.Drawing.Color.CornflowerBlue;
+                if (listenerInstance.UseCone)
+                {
+                    float coneAngle = MathUtil.RadiansToDegrees(listenerInstance.Cone.OuterAngle - listenerInstance.Cone.InnerAngle);
+
+                    float dirAngle = MathUtil.RadiansToDegrees(AngleSigned(Vector2.UnitX, new Vector2(listenerInstance.OrientFront.X, listenerInstance.OrientFront.Z)));
+                    dirAngle -= coneAngle * 0.5f;
+                    if (dirAngle < 0) dirAngle += 360;
+
+                    myPen.Color = System.Drawing.Color.Blue;
+                    formGraphics.FillPie(
+                        myBrush,
+                        GetItemRectangle(listenerInstance.Position, 50),
+                        dirAngle,
+                        coneAngle);
+                }
+                if (agent == listenerInstance) agentColor = System.Drawing.Color.Blue;
+                myBrush.Color = System.Drawing.Color.Blue;
+                formGraphics.FillEllipse(myBrush, GetItemRectangle(listenerInstance.Position, 10));
+
+                if (agent == emitterHelicopter) agentColor = System.Drawing.Color.Red;
+                myBrush.Color = System.Drawing.Color.Red;
+                myPen.Color = System.Drawing.Color.Red;
+                formGraphics.FillEllipse(myBrush, GetItemRectangle(emitterHelicopter.Position, 10));
+                formGraphics.DrawEllipse(myPen, GetItemRectangle(emitterHelicopter.Position, radius));
+
+                if (agent == emitterMusic) agentColor = System.Drawing.Color.DarkGray;
+                myBrush.Color = System.Drawing.Color.DarkGray;
+                myPen.Color = System.Drawing.Color.DarkGray;
+                formGraphics.FillEllipse(myBrush, GetItemRectangle(emitterMusic.Position, 10));
+                formGraphics.DrawEllipse(myPen, GetItemRectangle(emitterMusic.Position, radius));
+
+                myPen.Color = agentColor;
+                formGraphics.DrawEllipse(myPen, GetItemRectangle(agent.Position, 15));
+            }
+        }
+        private System.Drawing.Rectangle GetItemRectangle(Vector3 p, int size)
+        {
+            var bounds = panCanvas.ClientRectangle;
+
+            float xSize = AudioConstants.XMAX - AudioConstants.XMIN;
+            float zSize = AudioConstants.ZMAX - AudioConstants.ZMIN;
+
+            var px = (p.X + AudioConstants.XMAX) * (bounds.Width - xSize) / xSize;
+            var pz = (p.Z + AudioConstants.ZMAX) * (bounds.Height - zSize) / zSize;
+            px += xSize * 0.5f;
+            pz += zSize * 0.5f;
+
+            return new System.Drawing.Rectangle((int)(px - (size * 0.5f)), (int)(pz - (size * 0.5f)), size, size);
+        }
+
+        private static float Cross(Vector2 one, Vector2 two)
+        {
+            return one.X * two.Y - one.Y * two.X;
+        }
+        private static float AngleSigned(Vector2 one, Vector2 two)
+        {
+            return (float)Math.Atan2(Cross(one, two), Vector2.Dot(one, two));
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+
+            DrawCanvas();
         }
     }
 }

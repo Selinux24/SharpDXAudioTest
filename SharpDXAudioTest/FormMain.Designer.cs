@@ -52,6 +52,7 @@
             this.label6 = new System.Windows.Forms.Label();
             this.label7 = new System.Windows.Forms.Label();
             this.tbPitch = new System.Windows.Forms.TrackBar();
+            this.panCanvas = new System.Windows.Forms.Panel();
             ((System.ComponentModel.ISupportInitialize)(this.tbMasterVolume)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbHelicopter)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbMusic)).BeginInit();
@@ -61,7 +62,7 @@
             // 
             // butPauseResume
             // 
-            this.butPauseResume.Location = new System.Drawing.Point(474, 354);
+            this.butPauseResume.Location = new System.Drawing.Point(564, 429);
             this.butPauseResume.Name = "butPauseResume";
             this.butPauseResume.Size = new System.Drawing.Size(142, 23);
             this.butPauseResume.TabIndex = 0;
@@ -73,7 +74,7 @@
             // 
             this.cbEffects.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cbEffects.FormattingEnabled = true;
-            this.cbEffects.Location = new System.Drawing.Point(580, 12);
+            this.cbEffects.Location = new System.Drawing.Point(670, 12);
             this.cbEffects.Name = "cbEffects";
             this.cbEffects.Size = new System.Drawing.Size(142, 21);
             this.cbEffects.TabIndex = 1;
@@ -81,7 +82,7 @@
             // 
             // butLeft
             // 
-            this.butLeft.Location = new System.Drawing.Point(318, 103);
+            this.butLeft.Location = new System.Drawing.Point(656, 182);
             this.butLeft.Name = "butLeft";
             this.butLeft.Size = new System.Drawing.Size(45, 23);
             this.butLeft.TabIndex = 2;
@@ -91,7 +92,7 @@
             // 
             // butRight
             // 
-            this.butRight.Location = new System.Drawing.Point(418, 103);
+            this.butRight.Location = new System.Drawing.Point(756, 182);
             this.butRight.Name = "butRight";
             this.butRight.Size = new System.Drawing.Size(45, 23);
             this.butRight.TabIndex = 2;
@@ -101,7 +102,7 @@
             // 
             // butUp
             // 
-            this.butUp.Location = new System.Drawing.Point(369, 66);
+            this.butUp.Location = new System.Drawing.Point(707, 145);
             this.butUp.Name = "butUp";
             this.butUp.Size = new System.Drawing.Size(45, 23);
             this.butUp.TabIndex = 2;
@@ -111,7 +112,7 @@
             // 
             // butDown
             // 
-            this.butDown.Location = new System.Drawing.Point(369, 137);
+            this.butDown.Location = new System.Drawing.Point(707, 216);
             this.butDown.Name = "butDown";
             this.butDown.Size = new System.Drawing.Size(45, 23);
             this.butDown.TabIndex = 2;
@@ -122,7 +123,9 @@
             // chkListenerCone
             // 
             this.chkListenerCone.AutoSize = true;
-            this.chkListenerCone.Location = new System.Drawing.Point(562, 66);
+            this.chkListenerCone.Checked = true;
+            this.chkListenerCone.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkListenerCone.Location = new System.Drawing.Point(652, 66);
             this.chkListenerCone.Name = "chkListenerCone";
             this.chkListenerCone.Size = new System.Drawing.Size(127, 17);
             this.chkListenerCone.TabIndex = 5;
@@ -133,7 +136,9 @@
             // chkListenerInnerRadius
             // 
             this.chkListenerInnerRadius.AutoSize = true;
-            this.chkListenerInnerRadius.Location = new System.Drawing.Point(562, 89);
+            this.chkListenerInnerRadius.Checked = true;
+            this.chkListenerInnerRadius.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkListenerInnerRadius.Location = new System.Drawing.Point(652, 89);
             this.chkListenerInnerRadius.Name = "chkListenerInnerRadius";
             this.chkListenerInnerRadius.Size = new System.Drawing.Size(162, 17);
             this.chkListenerInnerRadius.TabIndex = 5;
@@ -148,35 +153,35 @@
             this.txtData.Multiline = true;
             this.txtData.Name = "txtData";
             this.txtData.ReadOnly = true;
-            this.txtData.Size = new System.Drawing.Size(271, 216);
+            this.txtData.Size = new System.Drawing.Size(280, 293);
             this.txtData.TabIndex = 6;
             // 
             // tbMasterVolume
             // 
-            this.tbMasterVolume.Location = new System.Drawing.Point(10, 234);
+            this.tbMasterVolume.Location = new System.Drawing.Point(12, 309);
             this.tbMasterVolume.Maximum = 100;
             this.tbMasterVolume.Name = "tbMasterVolume";
-            this.tbMasterVolume.Size = new System.Drawing.Size(353, 45);
+            this.tbMasterVolume.Size = new System.Drawing.Size(403, 45);
             this.tbMasterVolume.TabIndex = 7;
             this.tbMasterVolume.TickFrequency = 5;
             this.tbMasterVolume.Scroll += new System.EventHandler(this.TbMasterVolume_Scroll);
             // 
             // tbHelicopter
             // 
-            this.tbHelicopter.Location = new System.Drawing.Point(369, 285);
+            this.tbHelicopter.Location = new System.Drawing.Point(421, 360);
             this.tbHelicopter.Maximum = 100;
             this.tbHelicopter.Name = "tbHelicopter";
-            this.tbHelicopter.Size = new System.Drawing.Size(353, 45);
+            this.tbHelicopter.Size = new System.Drawing.Size(391, 45);
             this.tbHelicopter.TabIndex = 8;
             this.tbHelicopter.TickFrequency = 5;
             this.tbHelicopter.Scroll += new System.EventHandler(this.TbHelicopter_Scroll);
             // 
             // tbMusic
             // 
-            this.tbMusic.Location = new System.Drawing.Point(369, 234);
+            this.tbMusic.Location = new System.Drawing.Point(421, 309);
             this.tbMusic.Maximum = 100;
             this.tbMusic.Name = "tbMusic";
-            this.tbMusic.Size = new System.Drawing.Size(353, 45);
+            this.tbMusic.Size = new System.Drawing.Size(391, 45);
             this.tbMusic.TabIndex = 9;
             this.tbMusic.TickFrequency = 5;
             this.tbMusic.Scroll += new System.EventHandler(this.TbMusic_Scroll);
@@ -185,7 +190,7 @@
             // 
             this.label1.AutoSize = true;
             this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label1.Location = new System.Drawing.Point(137, 266);
+            this.label1.Location = new System.Drawing.Point(168, 341);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(90, 13);
             this.label1.TabIndex = 10;
@@ -194,7 +199,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(495, 317);
+            this.label2.Location = new System.Drawing.Point(585, 392);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(93, 13);
             this.label2.TabIndex = 10;
@@ -203,7 +208,7 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(505, 266);
+            this.label3.Location = new System.Drawing.Point(595, 341);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(73, 13);
             this.label3.TabIndex = 10;
@@ -213,7 +218,7 @@
             // 
             this.cbAgent.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cbAgent.FormattingEnabled = true;
-            this.cbAgent.Location = new System.Drawing.Point(580, 39);
+            this.cbAgent.Location = new System.Drawing.Point(670, 39);
             this.cbAgent.Name = "cbAgent";
             this.cbAgent.Size = new System.Drawing.Size(142, 21);
             this.cbAgent.TabIndex = 11;
@@ -221,7 +226,7 @@
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(501, 15);
+            this.label4.Location = new System.Drawing.Point(591, 15);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(73, 13);
             this.label4.TabIndex = 12;
@@ -230,7 +235,7 @@
             // label5
             // 
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(539, 42);
+            this.label5.Location = new System.Drawing.Point(629, 42);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(35, 13);
             this.label5.TabIndex = 12;
@@ -243,11 +248,11 @@
             // 
             // tbPan
             // 
-            this.tbPan.Location = new System.Drawing.Point(10, 285);
+            this.tbPan.Location = new System.Drawing.Point(12, 360);
             this.tbPan.Maximum = 50;
             this.tbPan.Minimum = -50;
             this.tbPan.Name = "tbPan";
-            this.tbPan.Size = new System.Drawing.Size(353, 45);
+            this.tbPan.Size = new System.Drawing.Size(403, 45);
             this.tbPan.TabIndex = 13;
             this.tbPan.TickFrequency = 5;
             this.tbPan.Scroll += new System.EventHandler(this.TbPan_Scroll);
@@ -256,7 +261,7 @@
             // 
             this.label6.AutoSize = true;
             this.label6.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label6.Location = new System.Drawing.Point(172, 317);
+            this.label6.Location = new System.Drawing.Point(198, 392);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(29, 13);
             this.label6.TabIndex = 14;
@@ -266,7 +271,7 @@
             // 
             this.label7.AutoSize = true;
             this.label7.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label7.Location = new System.Drawing.Point(172, 368);
+            this.label7.Location = new System.Drawing.Point(194, 443);
             this.label7.Name = "label7";
             this.label7.Size = new System.Drawing.Size(36, 13);
             this.label7.TabIndex = 16;
@@ -274,20 +279,29 @@
             // 
             // tbPitch
             // 
-            this.tbPitch.Location = new System.Drawing.Point(10, 336);
+            this.tbPitch.Location = new System.Drawing.Point(12, 411);
             this.tbPitch.Maximum = 50;
             this.tbPitch.Minimum = -50;
             this.tbPitch.Name = "tbPitch";
-            this.tbPitch.Size = new System.Drawing.Size(353, 45);
+            this.tbPitch.Size = new System.Drawing.Size(403, 45);
             this.tbPitch.TabIndex = 15;
             this.tbPitch.TickFrequency = 5;
             this.tbPitch.Scroll += new System.EventHandler(this.TbPitch_Scroll);
+            // 
+            // panCanvas
+            // 
+            this.panCanvas.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panCanvas.Location = new System.Drawing.Point(287, 12);
+            this.panCanvas.Name = "panCanvas";
+            this.panCanvas.Size = new System.Drawing.Size(293, 293);
+            this.panCanvas.TabIndex = 17;
             // 
             // FormMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(728, 419);
+            this.ClientSize = new System.Drawing.Size(820, 470);
+            this.Controls.Add(this.panCanvas);
             this.Controls.Add(this.label7);
             this.Controls.Add(this.tbPitch);
             this.Controls.Add(this.label6);
@@ -351,6 +365,7 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.TrackBar tbPitch;
+        private System.Windows.Forms.Panel panCanvas;
     }
 }
 
