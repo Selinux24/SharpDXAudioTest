@@ -9,7 +9,7 @@ namespace SharpDXAudioTest
 {
     public partial class FormMain : Form
     {
-        AudioState audioState;
+        AudioEngine audioState;
         int frameToApply3DAudio = 0;
         TimeSpan gameTime = DateTime.Now.TimeOfDay;
         bool resume = false;
@@ -18,19 +18,21 @@ namespace SharpDXAudioTest
 
         ListenerInstance listenerInstance = null;
 
-        VoiceInstance helicopter = null;
+        AudioEffect helicopter = null;
         EmitterInstance emitterHelicopter = null;
 
-        VoiceInstance music = null;
+        AudioEffect music = null;
         EmitterInstance emitterMusic = null;
 
         float masterVolume = 0;
+        int pan = 0;
+        int pitch = 0;
         float musicVolume = 0;
         float helicopterVolume = 0;
 
         private class ToUpdate3DVoice
         {
-            public VoiceInstance Voice { get; set; }
+            public AudioEffect Voice { get; set; }
             public EmitterInstance Emitter { get; set; }
         }
 
@@ -84,6 +86,10 @@ namespace SharpDXAudioTest
         {
             return $"{ position.X:00},{ position.Y:00},{ position.Z:00}";
         }
+        private static string FormatMatrix(float[] matrix)
+        {
+            return string.Join(" ", matrix.Select(m => $"{m:0.00}"));
+        }
 
         public FormMain()
         {
@@ -94,19 +100,21 @@ namespace SharpDXAudioTest
         {
             InitUI();
 
-            audioState = new AudioState();
-            audioState.SetVolume(0.5f);
+            audioState = new AudioEngine(44100);
+            audioState.Volume = 0.5f;
 
-            music = audioState.InitializeVoice("Music.mp3", true);
-            helicopter = audioState.InitializeVoice("heli.wav", true, true);
+            music = audioState.InitializeEffect("Valquirias.mp3", true);
+            helicopter = audioState.InitializeEffect("heli.wav", true);
 
             InitAgents();
 
-            masterVolume = audioState.GetVolume() * 100f;
-            musicVolume = music.GetVolume() * 100f;
-            helicopterVolume = helicopter.GetVolume() * 100f;
+            masterVolume = audioState.Volume * 100f;
+            musicVolume = music.Volume * 100f;
+            helicopterVolume = helicopter.Volume * 100f;
 
             tbMasterVolume.Value = (int)masterVolume;
+            tbPan.Value = pan;
+            tbPitch.Value = pitch;
             tbMusic.Value = (int)musicVolume;
             tbHelicopter.Value = (int)helicopterVolume;
         }
@@ -126,11 +134,21 @@ namespace SharpDXAudioTest
                 return;
             }
 
-            int value = cbEffects.SelectedIndex;
+            ReverbPresets? value = null;
+            int index = cbEffects.SelectedIndex - 1;
+            if (index >= 0)
+            {
+                value = (ReverbPresets)index;
+            }
 
             if (!helicopter.SetReverb(value))
             {
-                MessageBox.Show("Set reverb error");
+                MessageBox.Show($"Set reverb error - helicopter in {value}");
+            }
+
+            if (!music.SetReverb(value))
+            {
+                MessageBox.Show($"Set reverb error - music in {value}");
             }
         }
         private void ButUp_Click(object sender, EventArgs e)
@@ -185,19 +203,33 @@ namespace SharpDXAudioTest
         {
             masterVolume = tbMasterVolume.Value / (float)tbMasterVolume.Maximum * 100f;
 
-            audioState.SetVolume(masterVolume / 100f);
+            audioState.Volume = masterVolume / 100f;
+        }
+        private void TbPan_Scroll(object sender, EventArgs e)
+        {
+            pan = tbPan.Value;
+
+            helicopter.Pan = pan / 50f;
+            music.Pan = pan / 50f;
+        }
+        private void TbPitch_Scroll(object sender, EventArgs e)
+        {
+            pitch = tbPitch.Value;
+
+            helicopter.Pitch = pitch / 50f;
+            music.Pitch = pitch / 50f;
         }
         private void TbMusic_Scroll(object sender, EventArgs e)
         {
             musicVolume = tbMusic.Value / (float)tbMusic.Maximum * 100f;
 
-            music.SetVolume(musicVolume / 100f);
+            music.Volume = musicVolume / 100f;
         }
         private void TbHelicopter_Scroll(object sender, EventArgs e)
         {
             helicopterVolume = tbHelicopter.Value / (float)tbHelicopter.Maximum * 100f;
 
-            helicopter.SetVolume(helicopterVolume / 100f);
+            helicopter.Volume = helicopterVolume / 100f;
         }
         private void TimerUpdate_Tick(object sender, EventArgs e)
         {
@@ -231,13 +263,13 @@ namespace SharpDXAudioTest
 
         private void UpdateText()
         {
-            var helicopterDsp = helicopter.GetMatrixCoefficients();
-            var musicDsp = music.GetMatrixCoefficients();
+            var helicopterDsp = helicopter.GetOutputMatrix();
+            var musicDsp = music.GetOutputMatrix();
 
             string helicopterText = $"Helicopter      Pos {FormatPosition(emitterHelicopter.Position)}";
-            string helicopterDspText = $"Helicopter DSP.   L {helicopterDsp[0]:0.000} R {helicopterDsp[1]:0.000}";
+            string helicopterDspText = $"Helicopter DSP.   {FormatMatrix(helicopterDsp)}";
             string musicText = $"Music           Pos {FormatPosition(emitterMusic.Position)}";
-            string musicDspText = $"Music DSP.        L {musicDsp[0]:0.000} R {musicDsp[1]:0.000}";
+            string musicDspText = $"Music DSP.        {FormatMatrix(musicDsp)}";
             string listenerText = $"Listener        Pos {FormatPosition(listenerInstance.Position)}";
             string listenerText2 = $"Listener        Dir {FormatOrientation(listenerInstance.OrientFront)}";
             string musicVolumeText = $"Music volume      {musicVolume:000}";
@@ -275,6 +307,7 @@ namespace SharpDXAudioTest
             var propNames = AudioConstants.GetPresetNames();
 
             this.cbEffects.Items.AddRange(propNames.ToArray());
+            this.cbEffects.Items.Insert(0, "None");
             this.cbEffects.SelectedIndex = 0;
 
             listenerInstance = new ListenerInstance
@@ -306,7 +339,7 @@ namespace SharpDXAudioTest
             voices3d.Add(new ToUpdate3DVoice { Voice = music, Emitter = emitterMusic });
 
         }
-        bool UpdateAudio(float fElapsedTime)
+        bool UpdateAudio(float elapsedSeconds)
         {
             if (!audioState.Initialized)
             {
@@ -316,7 +349,7 @@ namespace SharpDXAudioTest
             if (frameToApply3DAudio < voices3d.Count)
             {
                 var voice3d = voices3d[frameToApply3DAudio];
-                voice3d.Voice.Calculate3D(fElapsedTime, listenerInstance, voice3d.Emitter);
+                voice3d.Voice.Apply3D(elapsedSeconds);
             }
 
             frameToApply3DAudio = ++frameToApply3DAudio % voices3d.Count;

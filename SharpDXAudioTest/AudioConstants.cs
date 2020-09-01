@@ -52,12 +52,44 @@ namespace SharpDXAudioTest
 
             return propNames;
         }
-        public static ReverbParameters GetPreset(int index)
+        public static ReverbParameters GetPreset(ReverbPresets preset, int sampleRate)
         {
-            var preset = PresetParams[index];
-            preset.RoomFilterFreq = 20;
-            return preset;
+            ReverbParameters reverbSettings = PresetParams[(int)preset];
+
+            // All parameters related to sampling rate or time are relative to a 48kHz voice and must be scaled for use with other sampling rates.
+            var timeScale = sampleRate / 48000f;
+
+            var result = new ReverbParameters
+            {
+                ReflectionsGain = reverbSettings.ReflectionsGain,
+                ReverbGain = reverbSettings.ReverbGain,
+                DecayTime = reverbSettings.DecayTime,
+                ReflectionsDelay = (int)(reverbSettings.ReflectionsDelay * timeScale),
+                ReverbDelay = (byte)(reverbSettings.ReverbDelay * timeScale),
+                RearDelay = (byte)(reverbSettings.RearDelay * timeScale),
+                SideDelay = (byte)(reverbSettings.SideDelay * timeScale),
+                RoomSize = reverbSettings.RoomSize,
+                Density = reverbSettings.Density,
+                LowEQGain = reverbSettings.LowEQGain,
+                LowEQCutoff = reverbSettings.LowEQCutoff,
+                HighEQGain = reverbSettings.HighEQGain,
+                HighEQCutoff = reverbSettings.HighEQCutoff,
+                PositionLeft = reverbSettings.PositionLeft,
+                PositionRight = reverbSettings.PositionRight,
+                PositionMatrixLeft = reverbSettings.PositionMatrixLeft,
+                PositionMatrixRight = reverbSettings.PositionMatrixRight,
+                EarlyDiffusion = reverbSettings.EarlyDiffusion,
+                LateDiffusion = reverbSettings.LateDiffusion,
+                RoomFilterMain = reverbSettings.RoomFilterMain,
+                RoomFilterFreq = reverbSettings.RoomFilterFreq * timeScale / 100f,
+                RoomFilterHF = reverbSettings.RoomFilterHF,
+                WetDryMix = reverbSettings.WetDryMix,
+                DisableLateField = reverbSettings.DisableLateField,
+            };
+
+            return result;
         }
+
         private static readonly ReverbParameters[] PresetParams =
         {
             (ReverbParameters)ReverbI3DL2Parameters.Presets.Default,

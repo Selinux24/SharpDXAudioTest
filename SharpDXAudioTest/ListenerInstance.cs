@@ -3,7 +3,7 @@ using SharpDX.X3DAudio;
 
 namespace SharpDXAudioTest
 {
-    class ListenerInstance : IAgent
+    public class ListenerInstance : IAgent
     {
         public static Cone DefaultCone
         {

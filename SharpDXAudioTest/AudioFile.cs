@@ -128,7 +128,7 @@ namespace SharpDXAudioTest
         /// </summary>
         /// <param name="buffer">Returns the audio buffer prepared to submit</param>
         /// <returns>Returns true if there are more buffers to play</returns>
-        public bool GetAudioBuffer(out AudioBuffer buffer)
+        public bool GetNextAudioBuffer(out AudioBuffer buffer)
         {
             buffer = null;
 

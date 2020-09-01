@@ -3,7 +3,7 @@ using SharpDX.X3DAudio;
 
 namespace SharpDXAudioTest
 {
-    class EmitterInstance : IAgent
+    public class EmitterInstance : IAgent
     {
         public string Name { get; set; }
         public Vector3 Position { get; set; } = Vector3.Zero;

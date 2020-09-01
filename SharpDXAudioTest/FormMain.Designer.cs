@@ -48,14 +48,20 @@
             this.label4 = new System.Windows.Forms.Label();
             this.label5 = new System.Windows.Forms.Label();
             this.timerUpdate = new System.Windows.Forms.Timer(this.components);
+            this.tbPan = new System.Windows.Forms.TrackBar();
+            this.label6 = new System.Windows.Forms.Label();
+            this.label7 = new System.Windows.Forms.Label();
+            this.tbPitch = new System.Windows.Forms.TrackBar();
             ((System.ComponentModel.ISupportInitialize)(this.tbMasterVolume)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbHelicopter)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbMusic)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.tbPan)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.tbPitch)).BeginInit();
             this.SuspendLayout();
             // 
             // butPauseResume
             // 
-            this.butPauseResume.Location = new System.Drawing.Point(114, 307);
+            this.butPauseResume.Location = new System.Drawing.Point(474, 354);
             this.butPauseResume.Name = "butPauseResume";
             this.butPauseResume.Size = new System.Drawing.Size(142, 23);
             this.butPauseResume.TabIndex = 0;
@@ -235,11 +241,57 @@
             this.timerUpdate.Enabled = true;
             this.timerUpdate.Tick += new System.EventHandler(this.TimerUpdate_Tick);
             // 
+            // tbPan
+            // 
+            this.tbPan.Location = new System.Drawing.Point(10, 285);
+            this.tbPan.Maximum = 50;
+            this.tbPan.Minimum = -50;
+            this.tbPan.Name = "tbPan";
+            this.tbPan.Size = new System.Drawing.Size(353, 45);
+            this.tbPan.TabIndex = 13;
+            this.tbPan.TickFrequency = 5;
+            this.tbPan.Scroll += new System.EventHandler(this.TbPan_Scroll);
+            // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label6.Location = new System.Drawing.Point(172, 317);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(29, 13);
+            this.label6.TabIndex = 14;
+            this.label6.Text = "Pan";
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label7.Location = new System.Drawing.Point(172, 368);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(36, 13);
+            this.label7.TabIndex = 16;
+            this.label7.Text = "Pitch";
+            // 
+            // tbPitch
+            // 
+            this.tbPitch.Location = new System.Drawing.Point(10, 336);
+            this.tbPitch.Maximum = 50;
+            this.tbPitch.Minimum = -50;
+            this.tbPitch.Name = "tbPitch";
+            this.tbPitch.Size = new System.Drawing.Size(353, 45);
+            this.tbPitch.TabIndex = 15;
+            this.tbPitch.TickFrequency = 5;
+            this.tbPitch.Scroll += new System.EventHandler(this.TbPitch_Scroll);
+            // 
             // FormMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(728, 344);
+            this.ClientSize = new System.Drawing.Size(728, 419);
+            this.Controls.Add(this.label7);
+            this.Controls.Add(this.tbPitch);
+            this.Controls.Add(this.label6);
+            this.Controls.Add(this.tbPan);
             this.Controls.Add(this.label5);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.cbAgent);
@@ -267,6 +319,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.tbMasterVolume)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbHelicopter)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbMusic)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.tbPan)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.tbPitch)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -293,6 +347,10 @@
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.Timer timerUpdate;
+        private System.Windows.Forms.TrackBar tbPan;
+        private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.TrackBar tbPitch;
     }
 }
 
