@@ -552,15 +552,6 @@ namespace SharpDXAudioTest
         /// <param name="elapsedSeconds">Elpased time</param>
         private void Calculate3D(float elapsedSeconds)
         {
-            if (Listener.UseCone)
-            {
-                listener.Cone = Listener.Cone;
-            }
-            else
-            {
-                listener.Cone = null;
-            }
-
             if (Listener.UseInnerRadius)
             {
                 emitter.InnerRadius = 2.0f;
@@ -579,6 +570,7 @@ namespace SharpDXAudioTest
                 emitter.Velocity = (Emitter.Position - emitter.Position) / elapsedSeconds;
             }
 
+            listener.Cone = Listener.UseCone ? Listener.Cone : null;
             listener.Position = Listener.Position;
             listener.OrientFront = Listener.OrientFront;
             listener.OrientTop = Listener.OrientTop;

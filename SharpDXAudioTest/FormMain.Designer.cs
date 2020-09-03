@@ -52,7 +52,7 @@
             this.label6 = new System.Windows.Forms.Label();
             this.label7 = new System.Windows.Forms.Label();
             this.tbPitch = new System.Windows.Forms.TrackBar();
-            this.panCanvas = new System.Windows.Forms.Panel();
+            this.panCanvas = new SharpDXAudioTest.GridPanel();
             ((System.ComponentModel.ISupportInitialize)(this.tbMasterVolume)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbHelicopter)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbMusic)).BeginInit();
@@ -78,7 +78,7 @@
             this.cbEffects.Name = "cbEffects";
             this.cbEffects.Size = new System.Drawing.Size(142, 21);
             this.cbEffects.TabIndex = 1;
-            this.cbEffects.SelectedValueChanged += new System.EventHandler(this.CmbEffects_SelectedValueChanged);
+            this.cbEffects.SelectedValueChanged += new System.EventHandler(this.CbEffects_SelectedValueChanged);
             // 
             // butLeft
             // 
@@ -222,6 +222,7 @@
             this.cbAgent.Name = "cbAgent";
             this.cbAgent.Size = new System.Drawing.Size(142, 21);
             this.cbAgent.TabIndex = 11;
+            this.cbAgent.SelectedIndexChanged += new System.EventHandler(this.CbAgent_SelectedIndexChanged);
             // 
             // label4
             // 
@@ -291,10 +292,15 @@
             // panCanvas
             // 
             this.panCanvas.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panCanvas.Helicopter = null;
+            this.panCanvas.Listener = null;
             this.panCanvas.Location = new System.Drawing.Point(287, 12);
+            this.panCanvas.Music = null;
             this.panCanvas.Name = "panCanvas";
+            this.panCanvas.SelectedAgent = null;
             this.panCanvas.Size = new System.Drawing.Size(293, 293);
             this.panCanvas.TabIndex = 17;
+            this.panCanvas.MouseMove += new System.Windows.Forms.MouseEventHandler(this.PanCanvas_MouseMove);
             // 
             // FormMain
             // 
@@ -365,7 +371,7 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.TrackBar tbPitch;
-        private System.Windows.Forms.Panel panCanvas;
+        private GridPanel panCanvas;
     }
 }
 

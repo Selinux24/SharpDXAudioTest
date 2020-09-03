@@ -67,6 +67,9 @@
     <Compile Include="AudioConstants.cs" />
     <Compile Include="AudioFile.cs" />
     <Compile Include="AudioSpeakers.cs" />
+    <Compile Include="GridPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="IAudioEffect.cs" />
     <Compile Include="AudioEffect.cs" />
     <Compile Include="AudioEngine.cs" />
