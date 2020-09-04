@@ -142,20 +142,15 @@ namespace SharpDXAudioTest
         {
             if (disposing)
             {
-                this.X3DInstance = null;
+                X3DInstance = null;
 
-                if (this.MasteringVoice != null)
-                {
-                    this.MasteringVoice.DestroyVoice();
-                    this.MasteringVoice = null;
-                }
+                MasteringVoice?.DestroyVoice();
+                MasteringVoice?.Dispose();
+                MasteringVoice = null;
 
-                if (this.Device != null)
-                {
-                    this.Device.StopEngine();
-                    this.Device.Dispose();
-                    this.Device = null;
-                }
+                Device.StopEngine();
+                Device.Dispose();
+                Device = null;
             }
         }
 

@@ -203,15 +203,13 @@ namespace SharpDXAudioTest
             voice = new AudioFile(fileName);
             voiceInputChannels = voice.WaveFormat.Channels;
 
-            VoiceSendDescriptor[] sendDescriptors = new[]
-            {
-                // LPF direct-path
-                new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = masteringVoice },
-            };
-
+            // Create the source voice
             sourceVoice = new SourceVoice(device, voice.WaveFormat, VoiceFlags.UseFilter, XAudio2.MaximumFrequencyRatio);
-            sourceVoice.SetOutputVoices(sendDescriptors);
             sourceVoice.BufferEnd += SourceVoiceBufferEnd;
+
+            // LPF direct-path
+            var sendDescriptor = new VoiceSendDescriptor { Flags = VoiceSendFlags.UseFilter, OutputVoice = masteringVoice };
+            sourceVoice.SetOutputVoices(sendDescriptor);
 
             // Starts the playing thread
             Task.Factory.StartNew(PlayAsync, TaskCreationOptions.LongRunning);

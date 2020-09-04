@@ -11,7 +11,7 @@ namespace SharpDXAudioTest
     /// <summary>
     /// Audio file
     /// </summary>
-    class AudioFile : IDisposable
+    class AudioFile : IDisposable, IAudioFile
     {
         private const int DefaultBufferCount = 3;
         private const int DefaulBuffertSize = 32 * 1024; // default size 32Kb

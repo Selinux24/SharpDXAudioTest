@@ -81,6 +81,7 @@
       <DependentUpon>FormMain.cs</DependentUpon>
     </Compile>
     <Compile Include="IAgent.cs" />
+    <Compile Include="IAudioFile.cs" />
     <Compile Include="ListenerInstance.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
